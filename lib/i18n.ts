@@ -65,6 +65,17 @@ const statusLabels = {
   },
 } as const;
 
+const workflowStatusLabels = {
+  en: {
+    Draft: "Draft",
+    Published: "Published",
+  },
+  fr: {
+    Draft: "Brouillon",
+    Published: "Publie",
+  },
+} as const;
+
 const roleLabels = {
   en: {
     Director: "Director",
@@ -86,6 +97,10 @@ export function getLanguageLabel(locale: Locale, language: string) {
 
 export function getStatusLabel(locale: Locale, status: string) {
   return statusLabels[locale][status as keyof (typeof statusLabels)[Locale]] ?? status;
+}
+
+export function getWorkflowStatusLabel(locale: Locale, status: string) {
+  return workflowStatusLabels[locale][status as keyof (typeof workflowStatusLabels)[Locale]] ?? status;
 }
 
 export function getRoleLabel(locale: Locale, role: string) {

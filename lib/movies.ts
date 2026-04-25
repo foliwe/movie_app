@@ -4,6 +4,7 @@ export type Movie = {
   title: string;
   originalTitle?: string;
   releaseYear: number;
+  releaseDate?: string;
   country: string;
   runtimeMinutes: number;
   director: string;
@@ -14,7 +15,10 @@ export type Movie = {
   reviews: number;
   trend: string;
   palette: "amber" | "teal" | "rose" | "ivory" | "green";
+  workflowStatus: "Draft" | "Published";
   status: "Published" | "Festival" | "Classic";
+  posterUrl: string;
+  backdropUrl: string;
   trailerUrl: string;
   cast: CastCredit[];
   crew: CrewCredit[];
@@ -86,7 +90,10 @@ export const movies: Movie[] = [
     reviews: 128,
     trend: "+24% this week",
     palette: "amber",
+    workflowStatus: "Published",
     status: "Festival",
+    posterUrl: "/assets/homepage-concept.png",
+    backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/mambar-pierrette",
     cast: [
       { personSlug: "pierrette-alene", name: "Pierrette Alene", character: "Pierrette" },
@@ -113,7 +120,10 @@ export const movies: Movie[] = [
     reviews: 314,
     trend: "Oscar entry",
     palette: "teal",
+    workflowStatus: "Published",
     status: "Published",
+    posterUrl: "/assets/homepage-concept.png",
+    backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/the-fishermans-diary",
     cast: [
       { personSlug: "faith-fidel", name: "Faith Fidel", character: "Ekah" },
@@ -140,7 +150,10 @@ export const movies: Movie[] = [
     reviews: 87,
     trend: "AMAA winner",
     palette: "rose",
+    workflowStatus: "Published",
     status: "Published",
+    posterUrl: "/assets/homepage-concept.png",
+    backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/ninahs-dowry",
     cast: [
       { personSlug: "mbufung-seikeh", name: "Mbufung Seikeh", character: "Ninah" },
@@ -168,7 +181,10 @@ export const movies: Movie[] = [
     reviews: 201,
     trend: "Restored classic",
     palette: "ivory",
+    workflowStatus: "Published",
     status: "Classic",
+    posterUrl: "/assets/homepage-concept.png",
+    backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/muna-moto",
     cast: [
       { personSlug: "david-enda", name: "David Enda", character: "Ngando" },
@@ -195,7 +211,10 @@ export const movies: Movie[] = [
     reviews: 42,
     trend: "Short spotlight",
     palette: "green",
+    workflowStatus: "Draft",
     status: "Published",
+    posterUrl: "/assets/homepage-concept.png",
+    backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/beleh",
     cast: [
       { personSlug: "sybille-yembe", name: "Sybille Yembe", character: "Pregnant wife" },
