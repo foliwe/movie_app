@@ -766,6 +766,17 @@ blockquote cite {
   align-items: start;
 }
 
+.sidebar-stack {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 18px;
+}
+
+.sidebar-stack .selected-film-panel {
+  position: static;
+}
+
 .catalogue-list {
   display: grid;
   gap: 10px;
@@ -1363,6 +1374,10 @@ blockquote cite {
 
   .catalogue-layout {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar-stack {
+    position: static;
   }
 
   .four-filters {

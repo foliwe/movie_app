@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
 import type { Movie, Review } from "@/lib/movies";
-import { getStatusLabel, type Locale } from "@/lib/i18n";
+import { getGenreLabel, getLanguageLabel, getStatusLabel, type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
 
 export const uiCopy = {
@@ -112,7 +112,7 @@ export function LanguageBadges({ languages }: { languages: string[] }) {
   return (
     <div className="language-badges" aria-label={locale === "fr" ? "Langues parlees" : "Spoken languages"}>
       {languages.map((language) => (
-        <span key={language}>{language}</span>
+        <span key={language}>{getLanguageLabel(locale, language)}</span>
       ))}
     </div>
   );
@@ -124,7 +124,7 @@ export function MovieMeta({ movie }: { movie: Movie }) {
   return (
     <div className="hero-facts">
       <span>{movie.releaseYear}</span>
-      <span>{movie.genres[0]}</span>
+      <span>{getGenreLabel(locale, movie.genres[0])}</span>
       <span>{movie.country}</span>
       <span>
         {Math.floor(movie.runtimeMinutes / 60)}h {movie.runtimeMinutes % 60}m

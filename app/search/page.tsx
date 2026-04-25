@@ -1,13 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
 import { MovieRow, PageHero, ReviewCard, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
-import { getGenreLabel, getLanguageLabel, type Locale } from "@/lib/i18n";
-import { genres, languages, movies, reviews } from "@/lib/movies";
+import { getGenreLabel, getLanguageLabel, getRoleLabel, type Locale } from "@/lib/i18n";
+import { genres, languages, movies, people, reviews } from "@/lib/movies";
 
 const reviewMovieLookup = new Map(movies.map((movie) => [movie.slug, movie]));
+const personCreditLookup = new Map(
+  people.map((person) => [
+    person.slug,
+    movies.filter((movie) => [...movie.cast, ...movie.crew].some((credit) => credit.personSlug === person.slug)),
+  ]),
+);
 
 const copy = {
   en: {
@@ -15,8 +22,10 @@ const copy = {
     title: "Find films, voices, and reviews",
     body: "Search spans titles, languages, people, genres, and review copy with local mock data.",
     placeholder: "Try Pidgin, Douala, Mambar, or education",
+    peopleMatches: "People matches",
     reviewMatches: "Review matches",
     noFilms: "No matching films yet.",
+    noPeople: "No matching people yet.",
     noReviews: "No matching reviews yet.",
     filters: "Filters",
     genre: "Genre",
@@ -34,8 +43,10 @@ const copy = {
     title: "Trouver films, voix et critiques",
     body: "La recherche couvre titres, langues, artistes, genres et textes de critiques avec des donnees mock locales.",
     placeholder: "Essayez Pidgin, Douala, Mambar ou education",
+    peopleMatches: "Artistes correspondants",
     reviewMatches: "Critiques correspondantes",
     noFilms: "Aucun film correspondant.",
+    noPeople: "Aucun artiste correspondant.",
     noReviews: "Aucune critique correspondante.",
     filters: "Filtres",
     genre: "Genre",
@@ -79,6 +90,37 @@ export default function SearchPage() {
         const yearMatch = year === "All" || String(movie.releaseYear) === year;
 
         return queryMatch && genreMatch && languageMatch && yearMatch && movie.rating >= minimumRating;
+      }),
+    [genre, hasQuery, language, minimumRating, normalizedQuery, year],
+  );
+
+  const matchingPeople = useMemo(
+    () =>
+      people.filter((person) => {
+        const credits = personCreditLookup.get(person.slug) ?? [];
+        const queryMatch =
+          !hasQuery ||
+          [
+            person.name,
+            person.role,
+            person.location,
+            person.bio,
+            ...person.knownFor,
+            ...credits.flatMap((movie) => [movie.title, movie.director, movie.country, ...movie.genres, ...movie.languages]),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedQuery);
+        const genreMatch = genre === "All" || credits.some((movie) => movie.genres.includes(genre));
+        const languageMatch =
+          language === "All" ||
+          credits.some((movie) =>
+            movie.languages.some((movieLanguage) => movieLanguage.toLowerCase().includes(language.toLowerCase())),
+          );
+        const yearMatch = year === "All" || credits.some((movie) => String(movie.releaseYear) === year);
+        const ratingMatch = credits.some((movie) => movie.rating >= minimumRating);
+
+        return queryMatch && genreMatch && languageMatch && yearMatch && ratingMatch;
       }),
     [genre, hasQuery, language, minimumRating, normalizedQuery, year],
   );
@@ -177,15 +219,32 @@ export default function SearchPage() {
             ))}
             {matchingMovies.length === 0 ? <p className="empty-state">{t.noFilms}</p> : null}
           </div>
-          <aside className="selected-film-panel">
-            <p className="eyebrow">{t.reviewMatches}</p>
-            <div className="stacked-list">
-              {matchingReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
-              ))}
-              {matchingReviews.length === 0 ? <p className="empty-state">{t.noReviews}</p> : null}
-            </div>
-          </aside>
+          <div className="sidebar-stack">
+            <aside className="selected-film-panel">
+              <p className="eyebrow">{t.peopleMatches}</p>
+              <div className="credit-list">
+                {matchingPeople.map((person) => (
+                  <Link href={`/people/${person.slug}`} key={person.id}>
+                    <strong>{person.name}</strong>
+                    <span>
+                      {getRoleLabel(locale, person.role)} / {person.location}
+                    </span>
+                    <ArrowRight size={17} />
+                  </Link>
+                ))}
+                {matchingPeople.length === 0 ? <p className="empty-state">{t.noPeople}</p> : null}
+              </div>
+            </aside>
+            <aside className="selected-film-panel">
+              <p className="eyebrow">{t.reviewMatches}</p>
+              <div className="stacked-list">
+                {matchingReviews.map((review) => (
+                  <ReviewCard key={review.id} review={review} />
+                ))}
+                {matchingReviews.length === 0 ? <p className="empty-state">{t.noReviews}</p> : null}
+              </div>
+            </aside>
+          </div>
         </div>
       </section>
     </main>

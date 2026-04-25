@@ -6,7 +6,7 @@ import { WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
 import { LanguageBadges, MovieMeta, PageHero, PosterBlock, ReviewCard, SiteHeader } from "@/components/site";
 import type { Movie, Person, Review, UserProfile } from "@/lib/movies";
-import { formatPublishedDate, type Locale } from "@/lib/i18n";
+import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
 const movieDetailCopy = {
   en: {
@@ -196,7 +196,7 @@ export function PersonDetailView({ person, credits }: { person: Person; credits:
   return (
     <main>
       <SiteHeader />
-      <PageHero eyebrow={person.role} title={person.name} body={person.bio} />
+      <PageHero eyebrow={getRoleLabel(locale, person.role)} title={person.name} body={person.bio} />
       <section className="split-band detail-grid">
         <aside className="selected-film-panel profile-card">
           <div className={`person-mark poster-${person.palette}`}>
@@ -311,7 +311,7 @@ export function ProfileDetailView({ profile, authoredReviews }: { profile: UserP
           <dl>
             <div>
               <dt>{t.favoriteLanguages}</dt>
-              <dd>{profile.favoriteLanguages.join(", ")}</dd>
+              <dd>{formatLanguageList(locale, profile.favoriteLanguages)}</dd>
             </div>
           </dl>
           <Link className="detail-action" href="/movies">

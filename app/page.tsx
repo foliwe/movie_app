@@ -16,7 +16,7 @@ import {
 import clsx from "clsx";
 import { SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
-import { getGenreLabel, getLanguageLabel, type Locale } from "@/lib/i18n";
+import { formatLanguageList, getGenreLabel, getLanguageLabel, type Locale } from "@/lib/i18n";
 import { genres, languages, movies, reviews } from "@/lib/movies";
 
 const copy = {
@@ -118,7 +118,7 @@ export default function Home() {
             <h1>{heroMovie.title}</h1>
             <div className="hero-facts">
               <span>{heroMovie.releaseYear}</span>
-              <span>{heroMovie.genres[0]}</span>
+              <span>{getGenreLabel(locale, heroMovie.genres[0])}</span>
               <span>{heroMovie.country}</span>
               <span>
                 {Math.floor(heroMovie.runtimeMinutes / 60)}h {heroMovie.runtimeMinutes % 60}m
@@ -312,7 +312,7 @@ export default function Home() {
                     </span>
                     <span>
                       <Languages size={15} />
-                      {movie.languages.slice(0, 2).join(", ")}
+                      {formatLanguageList(locale, movie.languages.slice(0, 2))}
                     </span>
                     <strong>
                       <Star size={15} fill="currentColor" />
@@ -339,7 +339,7 @@ export default function Home() {
               </div>
               <div>
                 <dt>{t.spoken}</dt>
-                <dd>{heroMovie.languages.join(", ")}</dd>
+                <dd>{formatLanguageList(locale, heroMovie.languages)}</dd>
               </div>
               <div>
                 <dt>{t.runtime}</dt>

@@ -356,7 +356,7 @@ export const userProfiles: UserProfile[] = [
 ];
 
 export const genres = ["All", "Drama", "Classic", "Comedy", "Education", "Short"] as const;
-export const languages = ["All", "Pidgin", "French", "English", "Basaa", "Duala", "Bamileke"] as const;
+export const languages = ["All", "Pidgin", "French", "English", "Basaa", "Duala", "Bamileke", "Babanki"] as const;
 
 export function getMovieBySlug(slug: string) {
   return movies.find((movie) => movie.slug === slug);
