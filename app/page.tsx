@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -10,13 +11,12 @@ import {
   MessageSquare,
   Play,
   Plus,
-  Search,
   SlidersHorizontal,
   Star,
-  UserCircle,
 } from "lucide-react";
 import clsx from "clsx";
 import { genres, languages, movies, reviews } from "@/lib/movies";
+import { SiteHeader } from "@/components/site";
 
 type Locale = "en" | "fr";
 
@@ -81,10 +81,6 @@ export default function Home() {
   const t = copy[locale];
   const heroMovie = movies.find((movie) => movie.id === selectedMovie) ?? movies[1];
 
-  const navItems = locale === "en"
-    ? ["Films", "Reviews", "People", "Lists", "News", "Watchlist"]
-    : ["Films", "Critiques", "Artistes", "Listes", "Actu", "A voir"];
-
   const visibleMovies = useMemo(() => movies, []);
   const filteredMovies = useMemo(
     () =>
@@ -101,39 +97,7 @@ export default function Home() {
 
   return (
     <main>
-      <header className="site-header">
-        <a className="brand" href="#" aria-label="Mboko Reels home">
-          <span>MBOKO</span>
-          <small>REELS</small>
-        </a>
-        <nav aria-label="Primary navigation">
-          {navItems.map((item) => (
-            <a href="#" key={item}>
-              {item}
-            </a>
-          ))}
-        </nav>
-        <div className="header-actions">
-          <button className="icon-button" aria-label="Search">
-            <Search size={22} strokeWidth={1.5} />
-          </button>
-          <div className="locale-toggle" aria-label="Language toggle">
-            {(["en", "fr"] as Locale[]).map((language) => (
-              <button
-                key={language}
-                className={clsx(language === locale && "is-active")}
-                onClick={() => setLocale(language)}
-              >
-                {language.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <span className="header-divider" aria-hidden="true" />
-          <button className="avatar-button" aria-label={String(t.signIn)}>
-            <UserCircle size={31} strokeWidth={1.25} />
-          </button>
-        </div>
-      </header>
+      <SiteHeader />
 
       <section className="hero-shell">
         <Image
@@ -167,14 +131,14 @@ export default function Home() {
               <small>Based on {heroMovie.reviews} reviews</small>
             </div>
             <div className="hero-actions">
-              <a className="primary-action" href="#">
+              <Link className="primary-action" href={`/movies/${heroMovie.slug}`}>
                 <Play size={18} fill="currentColor" />
                 Read review
-              </a>
-              <a className="secondary-action" href="#">
+              </Link>
+              <Link className="secondary-action" href={`/write-review/${heroMovie.slug}`}>
                 <Plus size={18} />
                 Add to watchlist
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -194,10 +158,10 @@ export default function Home() {
       <section className="content-band">
         <div className="section-heading">
           <h2>{t.trending}</h2>
-          <a href="#">
+          <Link href="/movies">
             View all
             <ArrowRight size={18} />
-          </a>
+          </Link>
         </div>
 
         <div className="movie-rail">
@@ -228,7 +192,7 @@ export default function Home() {
               <Star size={18} fill="currentColor" />
               {t.editor}
             </h2>
-            <a href="#">View all</a>
+            <Link href="/movies">View all</Link>
           </div>
           <div className="editor-grid">
             {movies.slice(0, 3).map((movie) => (
@@ -247,7 +211,7 @@ export default function Home() {
               <MessageSquare size={18} />
               {t.recent}
             </h2>
-            <a href="#">View all</a>
+            <Link href="/reviews">View all</Link>
           </div>
           {reviews.map((review) => (
             <article key={review.id} className="review-card">
@@ -255,7 +219,9 @@ export default function Home() {
                 <strong>{review.movieTitle.split(" ")[0]}</strong>
               </div>
               <div>
-                <h3>{review.movieTitle}</h3>
+                <Link href={`/reviews/${review.slug}`}>
+                  <h3>{review.movieTitle}</h3>
+                </Link>
                 <p>
                   <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
                 </p>
@@ -375,10 +341,10 @@ export default function Home() {
                 </dd>
               </div>
             </dl>
-            <a href="#" className="detail-action">
+            <Link href={`/movies/${heroMovie.slug}`} className="detail-action">
               {t.openDetails}
               <ArrowRight size={18} />
-            </a>
+            </Link>
           </aside>
         </div>
       </section>
