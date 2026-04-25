@@ -3,14 +3,53 @@
 import { useMemo, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import clsx from "clsx";
-import { genres, languages, movies } from "@/lib/movies";
 import { MovieRow, PageHero, SiteHeader } from "@/components/site";
+import { useLocale } from "@/components/locale-provider";
+import { getGenreLabel, getLanguageLabel, type Locale } from "@/lib/i18n";
+import { genres, languages, movies } from "@/lib/movies";
+
+const copy = {
+  en: {
+    eyebrow: "Discover catalogue",
+    title: "Browse Cameroon cinema",
+    body: "Filter mock catalogue entries by language, genre, year, and rating before Phase 2 connects the database.",
+    filters: "Filters",
+    ratings: "1-10 ratings",
+    genre: "Genre",
+    language: "Language",
+    year: "Year",
+    rating: "Rating",
+    allGenres: "All genres",
+    allLanguages: "All languages",
+    allYears: "All years",
+    films: "films",
+    empty: "No matching films yet.",
+  },
+  fr: {
+    eyebrow: "Catalogue decouverte",
+    title: "Parcourir le cinema camerounais",
+    body: "Filtrez les titres mock par langue, genre, annee et note avant la connexion Phase 2.",
+    filters: "Filtres",
+    ratings: "Notes 1-10",
+    genre: "Genre",
+    language: "Langue",
+    year: "Annee",
+    rating: "Note",
+    allGenres: "Tous genres",
+    allLanguages: "Toutes langues",
+    allYears: "Toutes annees",
+    films: "films",
+    empty: "Aucun film correspondant.",
+  },
+} satisfies Record<Locale, Record<string, string>>;
 
 export default function MoviesPage() {
+  const { locale } = useLocale();
   const [genre, setGenre] = useState("All");
   const [language, setLanguage] = useState("All");
   const [minimumRating, setMinimumRating] = useState(7);
   const [year, setYear] = useState("All");
+  const t = copy[locale];
 
   const years = useMemo(() => ["All", ...Array.from(new Set(movies.map((movie) => String(movie.releaseYear))))], []);
   const filteredMovies = useMemo(
@@ -29,28 +68,44 @@ export default function MoviesPage() {
   return (
     <main>
       <SiteHeader />
-      <PageHero
-        eyebrow="Discover catalogue"
-        title="Browse Cameroon cinema"
-        body="Filter mock catalogue entries by language, genre, year, and rating before Phase 2 connects the database."
-      />
+      <PageHero eyebrow={t.eyebrow} title={t.title} body={t.body} />
       <section className="discover-band page-section">
         <div className="discover-heading compact-heading">
           <div>
-            <p className="eyebrow">Filters</p>
-            <h2>{filteredMovies.length} films</h2>
+            <p className="eyebrow">{t.filters}</p>
+            <h2>
+              {filteredMovies.length} {t.films}
+            </h2>
           </div>
           <div className="filter-summary">
             <SlidersHorizontal size={18} />
-            <span>1-10 ratings</span>
+            <span>{t.ratings}</span>
           </div>
         </div>
         <div className="filter-grid four-filters">
-          <FilterGroup label="Genre" options={[...genres]} value={genre} onChange={setGenre} />
-          <FilterGroup label="Language" options={[...languages]} value={language} onChange={setLanguage} />
-          <FilterGroup label="Year" options={years} value={year} onChange={setYear} />
+          <FilterGroup
+            label={t.genre}
+            options={[...genres]}
+            value={genre}
+            onChange={setGenre}
+            labelForOption={(option) => (option === "All" ? t.allGenres : getGenreLabel(locale, option))}
+          />
+          <FilterGroup
+            label={t.language}
+            options={[...languages]}
+            value={language}
+            onChange={setLanguage}
+            labelForOption={(option) => (option === "All" ? t.allLanguages : getLanguageLabel(locale, option))}
+          />
+          <FilterGroup
+            label={t.year}
+            options={years}
+            value={year}
+            onChange={setYear}
+            labelForOption={(option) => (option === "All" ? t.allYears : option)}
+          />
           <div className="filter-group">
-            <span>Rating</span>
+            <span>{t.rating}</span>
             <label className="range-field">
               <input
                 type="range"
@@ -68,7 +123,7 @@ export default function MoviesPage() {
           {filteredMovies.map((movie) => (
             <MovieRow key={movie.id} movie={movie} href={`/movies/${movie.slug}`} />
           ))}
-          {filteredMovies.length === 0 ? <p className="empty-state">No matching films yet.</p> : null}
+          {filteredMovies.length === 0 ? <p className="empty-state">{t.empty}</p> : null}
         </div>
       </section>
     </main>
@@ -80,11 +135,13 @@ function FilterGroup({
   options,
   value,
   onChange,
+  labelForOption,
 }: {
   label: string;
   options: string[];
   value: string;
   onChange: (value: string) => void;
+  labelForOption: (option: string) => string;
 }) {
   return (
     <div className="filter-group">
@@ -97,7 +154,7 @@ function FilterGroup({
             className={clsx(value === option && "is-active")}
             onClick={() => onChange(option)}
           >
-            {option}
+            {labelForOption(option)}
           </button>
         ))}
       </div>

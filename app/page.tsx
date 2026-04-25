@@ -10,78 +10,80 @@ import {
   Languages,
   MessageSquare,
   Play,
-  Plus,
   SlidersHorizontal,
   Star,
 } from "lucide-react";
 import clsx from "clsx";
-import { genres, languages, movies, reviews } from "@/lib/movies";
 import { SiteHeader } from "@/components/site";
-
-type Locale = "en" | "fr";
+import { useLocale } from "@/components/locale-provider";
+import { getGenreLabel, getLanguageLabel, type Locale } from "@/lib/i18n";
+import { genres, languages, movies, reviews } from "@/lib/movies";
 
 const copy = {
   en: {
-    nav: ["Discover", "Reviews", "Watchlist", "People"],
-    signIn: "Sign in",
-    eyebrow: "Cameroon cinema, rated by the community",
-    title: "Find the next Cameroonian film worth talking about.",
-    body: "Mboko Reels brings classics, festival premieres, and crowd reviews into one bilingual home for movie lovers.",
-    watch: "Watch trailer",
-    review: "Write review",
-    rating: "Community rating",
+    featured: "Featured film",
+    score: "Mboko score",
+    basedOn: "Based on",
+    reviews: "reviews",
+    openFilm: "Open film page",
+    writeReview: "Write review",
+    badgeTitle: "Official selection",
+    quote: `"A quiet, powerful portrait of identity and belonging."`,
+    quoteSource: "237 Film Room",
     trending: "Trending now",
     editor: "Editor picks",
     recent: "Fresh reviews",
+    viewAll: "View all",
     browse: "Browse all",
+    discover: "Discover catalogue",
+    selected: "Selected film",
     filters: "Filters",
     language: "Language",
-    discover: "Discover catalogue",
-    allGenres: "All genres",
-    allLanguages: "All languages",
-    selected: "Selected film",
     director: "Director",
     spoken: "Spoken languages",
     runtime: "Runtime",
     openDetails: "Open film details",
-    source: "Film data sourced from public festival, distributor, and movie database pages.",
+    filmCount: "films",
+    allGenres: "All genres",
+    allLanguages: "All languages",
   },
   fr: {
-    nav: ["Decouvrir", "Critiques", "Liste", "Artistes"],
-    signIn: "Connexion",
-    eyebrow: "Cinema camerounais, note par la communaute",
-    title: "Trouvez le prochain film camerounais qui merite conversation.",
-    body: "Mboko Reels rassemble classiques, premieres de festivals et critiques en une maison bilingue pour cinephiles.",
-    watch: "Voir la bande-annonce",
-    review: "Ecrire une critique",
-    rating: "Note communaute",
-    trending: "Tendances",
+    featured: "Film en vedette",
+    score: "Score Mboko",
+    basedOn: "Base sur",
+    reviews: "critiques",
+    openFilm: "Ouvrir la fiche film",
+    writeReview: "Ecrire une critique",
+    badgeTitle: "Selection officielle",
+    quote: `"Un portrait calme et puissant de l'identite et de l'appartenance."`,
+    quoteSource: "237 Film Room",
+    trending: "En tendance",
     editor: "Choix de la redaction",
     recent: "Critiques recentes",
+    viewAll: "Tout voir",
     browse: "Tout parcourir",
+    discover: "Catalogue decouverte",
+    selected: "Film selectionne",
     filters: "Filtres",
     language: "Langue",
-    discover: "Catalogue decouverte",
-    allGenres: "Tous genres",
-    allLanguages: "Toutes langues",
-    selected: "Film selectionne",
     director: "Realisation",
     spoken: "Langues parlees",
     runtime: "Duree",
     openDetails: "Ouvrir la fiche",
-    source: "Donnees films issues de pages publiques de festivals, distributeurs et bases cinema.",
+    filmCount: "films",
+    allGenres: "Tous genres",
+    allLanguages: "Toutes langues",
   },
-} satisfies Record<Locale, Record<string, string | string[]>>;
+} satisfies Record<Locale, Record<string, string>>;
 
 export default function Home() {
-  const [locale, setLocale] = useState<Locale>("en");
+  const { locale } = useLocale();
   const [selectedMovie, setSelectedMovie] = useState(movies[1].id);
   const [activeGenre, setActiveGenre] = useState<(typeof genres)[number]>("All");
   const [activeLanguage, setActiveLanguage] = useState<(typeof languages)[number]>("All");
   const t = copy[locale];
   const heroMovie = movies.find((movie) => movie.id === selectedMovie) ?? movies[1];
 
-  const visibleMovies = useMemo(() => movies, []);
   const filteredMovies = useMemo(
     () =>
       movies.filter((movie) => {
@@ -112,45 +114,49 @@ export default function Home() {
 
         <div className="hero-content">
           <div className="hero-copy">
-            <p className="eyebrow">Featured film</p>
+            <p className="eyebrow">{t.featured}</p>
             <h1>{heroMovie.title}</h1>
             <div className="hero-facts">
               <span>{heroMovie.releaseYear}</span>
               <span>{heroMovie.genres[0]}</span>
               <span>{heroMovie.country}</span>
-              <span>{Math.floor(heroMovie.runtimeMinutes / 60)}h {heroMovie.runtimeMinutes % 60}m</span>
+              <span>
+                {Math.floor(heroMovie.runtimeMinutes / 60)}h {heroMovie.runtimeMinutes % 60}m
+              </span>
               <strong>13+</strong>
             </div>
             <p className="lede">{heroMovie.synopsis}</p>
             <div className="score-block" aria-label={`${heroMovie.rating} out of 10 Mboko score`}>
-              <span>Mboko score</span>
+              <span>{t.score}</span>
               <strong>{heroMovie.rating.toFixed(1)}</strong>
               <em>/10</em>
               <i aria-hidden="true" />
               <Star size={18} fill="currentColor" />
-              <small>Based on {heroMovie.reviews} reviews</small>
+              <small>
+                {t.basedOn} {heroMovie.reviews} {t.reviews}
+              </small>
             </div>
             <div className="hero-actions">
               <Link className="primary-action" href={`/movies/${heroMovie.slug}`}>
                 <Play size={18} fill="currentColor" />
-                Read review
+                {t.openFilm}
               </Link>
               <Link className="secondary-action" href={`/write-review/${heroMovie.slug}`}>
-                <Plus size={18} />
-                Add to watchlist
+                <MessageSquare size={18} />
+                {t.writeReview}
               </Link>
             </div>
           </div>
 
-          <div className="festival-badge" aria-label="Festival selection badge">
+          <div className="festival-badge" aria-label={t.badgeTitle}>
             <span>AFRIFF</span>
-            <small>Official selection</small>
+            <small>{t.badgeTitle}</small>
             <strong>{heroMovie.releaseYear}</strong>
           </div>
 
           <blockquote>
-            <p>"A quiet, powerful portrait of identity and belonging."</p>
-            <cite>- 237 Film Room</cite>
+            <p>{t.quote}</p>
+            <cite>- {t.quoteSource}</cite>
           </blockquote>
         </div>
       </section>
@@ -159,13 +165,13 @@ export default function Home() {
         <div className="section-heading">
           <h2>{t.trending}</h2>
           <Link href="/movies">
-            View all
+            {t.viewAll}
             <ArrowRight size={18} />
           </Link>
         </div>
 
         <div className="movie-rail">
-          {visibleMovies.map((movie) => (
+          {movies.map((movie) => (
             <button
               className={clsx("movie-card", selectedMovie === movie.id && "is-selected")}
               key={movie.id}
@@ -192,7 +198,7 @@ export default function Home() {
               <Star size={18} fill="currentColor" />
               {t.editor}
             </h2>
-            <Link href="/movies">View all</Link>
+            <Link href="/movies">{t.viewAll}</Link>
           </div>
           <div className="editor-grid">
             {movies.slice(0, 3).map((movie) => (
@@ -211,7 +217,7 @@ export default function Home() {
               <MessageSquare size={18} />
               {t.recent}
             </h2>
-            <Link href="/reviews">View all</Link>
+            <Link href="/reviews">{t.viewAll}</Link>
           </div>
           {reviews.map((review) => (
             <article key={review.id} className="review-card">
@@ -244,11 +250,13 @@ export default function Home() {
           </div>
           <div className="filter-summary">
             <SlidersHorizontal size={18} />
-            <span>{filteredMovies.length} films</span>
+            <span>
+              {filteredMovies.length} {t.filmCount}
+            </span>
           </div>
         </div>
 
-        <div className="filter-grid" aria-label={String(t.filters)}>
+        <div className="filter-grid" aria-label={t.filters}>
           <div className="filter-group">
             <span>{t.filters}</span>
             <div className="segmented-scroll" role="list">
@@ -259,7 +267,7 @@ export default function Home() {
                   className={clsx(activeGenre === genre && "is-active")}
                   onClick={() => setActiveGenre(genre)}
                 >
-                  {genre === "All" ? t.allGenres : genre}
+                  {genre === "All" ? t.allGenres : getGenreLabel(locale, genre)}
                 </button>
               ))}
             </div>
@@ -275,7 +283,7 @@ export default function Home() {
                   className={clsx(activeLanguage === language && "is-active")}
                   onClick={() => setActiveLanguage(language)}
                 >
-                  {language === "All" ? t.allLanguages : language}
+                  {language === "All" ? t.allLanguages : getLanguageLabel(locale, language)}
                 </button>
               ))}
             </div>

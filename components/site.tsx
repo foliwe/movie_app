@@ -1,50 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
 import type { Movie, Review } from "@/lib/movies";
-
-export type Locale = "en" | "fr";
+import { getStatusLabel, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/components/locale-provider";
 
 export const uiCopy = {
   en: {
     films: "Films",
     reviews: "Reviews",
     people: "People",
-    lists: "Lists",
-    news: "News",
-    watchlist: "Watchlist",
+    search: "Search",
+    profiles: "Profiles",
     signIn: "Sign in",
     viewAll: "View all",
-    search: "Search",
     noResults: "No matching films yet",
+    languageToggle: "Language toggle",
   },
   fr: {
     films: "Films",
     reviews: "Critiques",
     people: "Artistes",
-    lists: "Listes",
-    news: "Actu",
-    watchlist: "A voir",
+    search: "Recherche",
+    profiles: "Profils",
     signIn: "Connexion",
     viewAll: "Tout voir",
-    search: "Recherche",
     noResults: "Aucun film correspondant",
+    languageToggle: "Changement de langue",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
 export function SiteHeader() {
-  const [locale, setLocale] = useState<Locale>("en");
+  const { locale, setLocale } = useLocale();
   const t = uiCopy[locale];
   const navItems = [
     { label: t.films, href: "/movies" },
     { label: t.reviews, href: "/reviews" },
+    { label: t.search, href: "/search" },
     { label: t.people, href: "/people/rosine-mbakam" },
-    { label: t.lists, href: "/profile/aline-n" },
-    { label: t.news, href: "/search" },
-    { label: t.watchlist, href: "/profile/cedric-t" },
+    { label: t.profiles, href: "/profile/aline-n" },
   ];
 
   return (
@@ -64,7 +60,7 @@ export function SiteHeader() {
         <Link className="icon-button" aria-label={t.search} href="/search">
           <Search size={22} strokeWidth={1.5} />
         </Link>
-        <div className="locale-toggle" aria-label="Language toggle">
+        <div className="locale-toggle" aria-label={t.languageToggle}>
           {(["en", "fr"] as Locale[]).map((language) => (
             <button
               key={language}
@@ -110,7 +106,21 @@ export function RatingPill({ rating }: { rating: number }) {
   );
 }
 
+export function LanguageBadges({ languages }: { languages: string[] }) {
+  const { locale } = useLocale();
+
+  return (
+    <div className="language-badges" aria-label={locale === "fr" ? "Langues parlees" : "Spoken languages"}>
+      {languages.map((language) => (
+        <span key={language}>{language}</span>
+      ))}
+    </div>
+  );
+}
+
 export function MovieMeta({ movie }: { movie: Movie }) {
+  const { locale } = useLocale();
+
   return (
     <div className="hero-facts">
       <span>{movie.releaseYear}</span>
@@ -119,7 +129,7 @@ export function MovieMeta({ movie }: { movie: Movie }) {
       <span>
         {Math.floor(movie.runtimeMinutes / 60)}h {movie.runtimeMinutes % 60}m
       </span>
-      <strong>{movie.status}</strong>
+      <strong>{getStatusLabel(locale, movie.status)}</strong>
     </div>
   );
 }
@@ -141,9 +151,9 @@ export function MovieRow({
       <div className="catalogue-copy">
         <h3>{movie.title}</h3>
         <p>{movie.synopsis}</p>
+        <LanguageBadges languages={movie.languages.slice(0, 3)} />
         <div className="catalogue-meta">
           <span>{movie.releaseYear}</span>
-          <span>{movie.languages.slice(0, 2).join(", ")}</span>
           <RatingPill rating={movie.rating} />
         </div>
       </div>

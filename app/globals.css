@@ -669,6 +669,7 @@ blockquote cite {
 .catalogue-meta,
 .catalogue-meta span,
 .catalogue-meta strong,
+.language-badges,
 .detail-action,
 .selected-film-panel dd {
   display: flex;
@@ -856,6 +857,24 @@ blockquote cite {
   line-height: 1.45;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.language-badges {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.language-badges span {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(84, 197, 173, 0.24);
+  color: var(--teal);
+  background: rgba(84, 197, 173, 0.08);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .catalogue-meta {
@@ -1118,6 +1137,10 @@ blockquote cite {
 .auth-form {
   display: grid;
   gap: 12px;
+}
+
+.top-spaced {
+  margin-top: 14px;
 }
 
 .credit-list a {

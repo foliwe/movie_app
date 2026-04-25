@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { WriteReviewForm } from "@/components/forms";
-import { MovieMeta, PageHero, PosterBlock, SiteHeader } from "@/components/site";
+import { WriteReviewView } from "@/components/detail-views";
 import { getMovieBySlug, movies } from "@/lib/movies";
 
 export function generateStaticParams() {
@@ -15,20 +14,5 @@ export default async function WriteReviewPage({ params }: { params: Promise<{ mo
     notFound();
   }
 
-  return (
-    <main>
-      <SiteHeader />
-      <PageHero eyebrow="Write review" title={movie.title} body="Rate on the planned 1-10 scale and preview the Phase 1 submission states." />
-      <section className="split-band detail-grid">
-        <div className="panel">
-          <WriteReviewForm movie={movie} />
-        </div>
-        <aside className="selected-film-panel">
-          <PosterBlock movie={movie} className="selected-poster" />
-          <MovieMeta movie={movie} />
-          <p>{movie.synopsis}</p>
-        </aside>
-      </section>
-    </main>
-  );
+  return <WriteReviewView movie={movie} />;
 }
