@@ -60,7 +60,7 @@ export function SiteHeader() {
         <Link className="icon-button" aria-label={t.search} href="/search">
           <Search size={22} strokeWidth={1.5} />
         </Link>
-        <div className="locale-toggle" aria-label={t.languageToggle}>
+        <div className="locale-toggle" aria-label={t.languageToggle} data-testid="locale-toggle">
           {(["en", "fr"] as Locale[]).map((language) => (
             <button
               key={language}

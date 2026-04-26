@@ -177,6 +177,7 @@ export default function SearchPage() {
         </div>
         <div className="filter-grid four-filters">
           <SearchFilterGroup
+            testId="search-filter-genre"
             label={t.genre}
             options={[...genres]}
             value={genre}
@@ -184,6 +185,7 @@ export default function SearchPage() {
             labelForOption={(option) => (option === "All" ? t.allGenres : getGenreLabel(locale, option))}
           />
           <SearchFilterGroup
+            testId="search-filter-language"
             label={t.language}
             options={[...languages]}
             value={language}
@@ -191,13 +193,14 @@ export default function SearchPage() {
             labelForOption={(option) => (option === "All" ? t.allLanguages : getLanguageLabel(locale, option))}
           />
           <SearchFilterGroup
+            testId="search-filter-year"
             label={t.year}
             options={years}
             value={year}
             onChange={setYear}
             labelForOption={(option) => (option === "All" ? t.allYears : option)}
           />
-          <div className="filter-group">
+          <div className="filter-group" data-testid="search-filter-rating">
             <span>{t.rating}</span>
             <label className="range-field">
               <input
@@ -252,12 +255,14 @@ export default function SearchPage() {
 }
 
 function SearchFilterGroup({
+  testId,
   label,
   options,
   value,
   onChange,
   labelForOption,
 }: {
+  testId: string;
   label: string;
   options: string[];
   value: string;
@@ -265,7 +270,7 @@ function SearchFilterGroup({
   labelForOption: (option: string) => string;
 }) {
   return (
-    <div className="filter-group">
+    <div className="filter-group" data-testid={testId}>
       <span>{label}</span>
       <div className="segmented-scroll" role="list">
         {options.map((option) => (
