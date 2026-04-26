@@ -1359,6 +1359,13 @@ blockquote cite {
   display: flex;
 }
 
+.admin-preview-grid,
+.admin-preview-actions,
+.admin-preview-facts dd {
+  display: flex;
+  align-items: center;
+}
+
 .admin-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1636,6 +1643,88 @@ blockquote cite {
   gap: 14px;
 }
 
+.admin-preview-card {
+  padding: 22px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(84, 197, 173, 0.08), transparent 30%),
+    rgba(10, 16, 17, 0.88);
+}
+
+.admin-preview-grid {
+  align-items: stretch;
+  gap: 18px;
+}
+
+.admin-preview-poster {
+  flex: 0 0 280px;
+  min-height: 236px;
+  margin-bottom: 0;
+}
+
+.admin-preview-copy {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-preview-copy h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.admin-preview-copy .hero-facts {
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.admin-preview-copy .language-badges {
+  margin-bottom: 0;
+}
+
+.admin-preview-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-preview-actions .detail-action {
+  min-width: 218px;
+}
+
+.admin-preview-secondary {
+  color: var(--text);
+  background: rgba(243, 236, 220, 0.04);
+}
+
+.admin-preview-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.admin-preview-facts div {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: rgba(243, 236, 220, 0.025);
+}
+
+.admin-preview-facts dt {
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-preview-facts dd {
+  margin: 0;
+  color: rgba(243, 236, 220, 0.86);
+  font-size: 0.95rem;
+}
+
 .admin-field {
   display: grid;
   gap: 8px;
@@ -1767,6 +1856,10 @@ blockquote cite {
     text-align: left;
   }
 
+  .admin-preview-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .sidebar-stack {
     position: static;
   }
@@ -1855,6 +1948,19 @@ blockquote cite {
     grid-template-columns: 1fr;
   }
 
+  .admin-preview-grid {
+    flex-direction: column;
+  }
+
+  .admin-preview-poster {
+    flex-basis: auto;
+    min-height: 200px;
+  }
+
+  .admin-preview-facts {
+    grid-template-columns: 1fr;
+  }
+
   .admin-credit-row {
     display: grid;
     align-items: stretch;
@@ -1938,6 +2044,14 @@ blockquote cite {
   .admin-form-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .admin-preview-card {
+    padding: 18px;
+  }
+
+  .admin-preview-actions .detail-action {
+    min-width: 100%;
   }
 
   .admin-movie-card {

@@ -55,4 +55,35 @@ test.describe("movie app smoke suite", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Mock account flow completed.")).toBeVisible();
   });
+
+  test("admin movie desk previews and publishes a new draft", async ({ page }) => {
+    await page.goto("/admin/movies");
+
+    await page.getByRole("button", { name: "New draft" }).click();
+    await page.getByLabel("Title", { exact: true }).fill("River Spirits");
+    await page.getByLabel("Director", { exact: true }).fill("Muna Esiene");
+    await page
+      .getByLabel("Synopsis", { exact: true })
+      .fill("A river guide returns home and finds the town negotiating memory, grief, and a new generation of filmmakers.");
+    await page
+      .locator(".admin-tag-grid .admin-field")
+      .filter({ hasText: "Languages covered" })
+      .locator("button")
+      .filter({ hasText: /^English$/ })
+      .click();
+    await page
+      .locator(".admin-tag-grid .admin-field")
+      .filter({ hasText: "Genres" })
+      .locator("button")
+      .filter({ hasText: /^Drama$/ })
+      .click();
+    await page.getByLabel("Trailer URL", { exact: true }).fill("https://example.com/trailers/river-spirits");
+    await page.getByRole("button", { name: "Publish record" }).click();
+
+    await expect(page.getByText("Record published locally.")).toBeVisible();
+    await expect(page.getByTestId("admin-preview-card")).toContainText("River Spirits");
+    await expect(page.getByTestId("admin-preview-card")).toContainText("Trailer ready");
+    await expect(page.locator('a[href="/movies/river-spirits"]')).toBeVisible();
+    await expect(page.locator('a[href="/write-review/river-spirits"]')).toBeVisible();
+  });
 });
