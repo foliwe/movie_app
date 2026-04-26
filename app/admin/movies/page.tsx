@@ -3,7 +3,8 @@
 import { type ReactNode, useMemo, useState } from "react";
 import { CheckCircle2, Clapperboard, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
 import clsx from "clsx";
-import { PageHero, SiteHeader } from "@/components/site";
+import Link from "next/link";
+import { LanguageBadges, MovieMeta, PageHero, PosterBlock, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
 import {
   getGenreLabel,
@@ -84,6 +85,16 @@ const copy = {
     saveSuccess: "Draft saved locally.",
     publishSuccess: "Record published locally.",
     publishErrorPrefix: "Add the required fields before publishing:",
+    preview: "Public preview",
+    previewBody: "Complete the basics, languages, and genres to sharpen the catalogue-facing story.",
+    previewGenres: "Genres",
+    previewCast: "Cast links",
+    previewCrew: "Crew links",
+    previewTrailerReady: "Trailer ready",
+    previewTrailerPending: "Trailer pending",
+    openPublicPage: "Open public page",
+    openReviewRoute: "Open review route",
+    previewLinksUnavailable: "Public links are available only for seeded catalogue titles in this demo.",
     draftStatus: "Draft",
     publishedStatus: "Published",
   },
@@ -143,6 +154,16 @@ const copy = {
     saveSuccess: "Brouillon enregistre localement.",
     publishSuccess: "Fiche publiee localement.",
     publishErrorPrefix: "Ajoutez les champs requis avant publication :",
+    preview: "Apercu public",
+    previewBody: "Completez les informations, langues et genres pour affiner la presentation cote catalogue.",
+    previewGenres: "Genres",
+    previewCast: "Liens casting",
+    previewCrew: "Liens equipe",
+    previewTrailerReady: "Bande-annonce prete",
+    previewTrailerPending: "Bande-annonce en attente",
+    openPublicPage: "Ouvrir la page publique",
+    openReviewRoute: "Ouvrir la route critique",
+    previewLinksUnavailable: "Les liens publics sont disponibles seulement pour les titres catalogue precharges dans cette demo.",
     draftStatus: "Brouillon",
     publishedStatus: "Publie",
   },
@@ -204,6 +225,8 @@ export default function AdminMoviesPage() {
         genres: t.taxonomy,
       })
     : [];
+  const canOpenPublicPreview =
+    selectedMovie !== null && movies.some((movie) => movie.id === selectedMovie.id && movie.slug === selectedMovie.slug);
 
   function updateSelectedMovie(updater: (movie: Movie) => Movie) {
     setRecords((current) =>
@@ -689,6 +712,65 @@ export default function AdminMoviesPage() {
                     <Field label={t.trailerUrlLabel}>
                       <input value={selectedMovie.trailerUrl} onChange={(event) => updateField("trailerUrl", event.target.value)} />
                     </Field>
+                  </div>
+                </section>
+
+                <section className="admin-section">
+                  <div className="admin-section-heading">
+                    <h3>{t.preview}</h3>
+                    <span>{selectedMovie.slug || t.untitled}</span>
+                  </div>
+
+                  <div className="admin-preview-card" data-testid="admin-preview-card">
+                    <div className="admin-preview-grid">
+                      <PosterBlock movie={selectedMovie} className="selected-poster admin-preview-poster" />
+
+                      <div className="admin-preview-copy">
+                        <p className="eyebrow">{t.preview}</p>
+                        <h3>{selectedMovie.title || t.untitled}</h3>
+                        <MovieMeta movie={selectedMovie} />
+                        <p>{selectedMovie.synopsis.trim().length > 0 ? selectedMovie.synopsis : t.previewBody}</p>
+                        {selectedMovie.languages.length > 0 ? <LanguageBadges languages={selectedMovie.languages} /> : null}
+
+                        <div className="admin-preview-actions">
+                          {canOpenPublicPreview ? (
+                            <>
+                              <Link className="detail-action" href={`/movies/${selectedMovie.slug}`}>
+                                {t.openPublicPage}
+                              </Link>
+                              <Link className="detail-action admin-preview-secondary" href={`/write-review/${selectedMovie.slug}`}>
+                                {t.openReviewRoute}
+                              </Link>
+                            </>
+                          ) : (
+                            <p className="admin-preview-note">{t.previewLinksUnavailable}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <dl className="admin-preview-facts">
+                      <div>
+                        <dt>{t.previewGenres}</dt>
+                        <dd>
+                          {selectedMovie.genres.length > 0
+                            ? selectedMovie.genres.map((genre) => getGenreLabel(locale, genre)).join(", ")
+                            : t.taxonomy}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{t.previewCast}</dt>
+                        <dd>{selectedMovie.cast.length}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.previewCrew}</dt>
+                        <dd>{selectedMovie.crew.length}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.media}</dt>
+                        <dd>{selectedMovie.trailerUrl.trim().length > 0 ? t.previewTrailerReady : t.previewTrailerPending}</dd>
+                      </div>
+                    </dl>
                   </div>
                 </section>
 

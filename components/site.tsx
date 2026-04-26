@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
-import type { Movie, Review } from "@/lib/movies";
-import { getGenreLabel, getLanguageLabel, getStatusLabel, type Locale } from "@/lib/i18n";
+import { getMovieBySlug, type Movie, type Review } from "@/lib/movies";
+import { formatLanguageList, getGenreLabel, getLanguageLabel, getStatusLabel, type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
 
 export const uiCopy = {
@@ -176,12 +176,20 @@ export function MovieRow({
 }
 
 export function ReviewCard({ review }: { review: Review }) {
+  const { locale } = useLocale();
+  const movie = getMovieBySlug(review.movieSlug);
+
   return (
     <article className="review-card expanded-review">
       <div className="review-thumb poster-teal">
         <strong>{review.movieTitle.split(" ")[0]}</strong>
       </div>
       <div>
+        {movie ? (
+          <small className="review-card-context">
+            {review.movieTitle} / {formatLanguageList(locale, movie.languages.slice(0, 2))}
+          </small>
+        ) : null}
         <Link href={`/reviews/${review.slug}`}>
           <h3>{review.title}</h3>
         </Link>

@@ -55,4 +55,72 @@ test.describe("movie app smoke suite", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Mock account flow completed.")).toBeVisible();
   });
+
+  test("write review restores local drafts and resets after publish", async ({ page }) => {
+    await page.goto("/write-review/mambar-pierrette");
+
+    await page.getByLabel("Review title", { exact: true }).fill("Measured, intimate, unforgettable");
+    await page
+      .getByLabel("Your review", { exact: true })
+      .fill("A beautifully observed portrait that keeps revealing character through routine, labour, and pressure.");
+    await page.getByLabel("Contains spoilers", { exact: true }).check();
+    await page.getByRole("button", { name: "Save draft locally" }).click();
+
+    await expect(page.getByText("Draft saved locally on this device.")).toBeVisible();
+    await expect(page.getByTestId("review-preview-card")).toContainText("Spoilers flagged");
+
+    await page.reload();
+    await expect(page.getByText("Saved draft restored for this title.")).toBeVisible();
+    await expect(page.getByLabel("Review title", { exact: true })).toHaveValue("Measured, intimate, unforgettable");
+    await expect(page.getByLabel("Contains spoilers", { exact: true })).toBeChecked();
+
+    await page.getByRole("button", { name: "Publish mock review" }).click();
+    await expect(page.getByText("Review saved locally for the Phase 1 demo.")).toBeVisible();
+    await expect(page.getByLabel("Review title", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Contains spoilers", { exact: true })).not.toBeChecked();
+  });
+
+  test("admin movie desk previews and publishes a new draft", async ({ page }) => {
+    await page.goto("/admin/movies");
+
+    await page.getByRole("button", { name: "New draft" }).click();
+    await page.getByLabel("Title", { exact: true }).fill("River Spirits");
+    await page.getByLabel("Director", { exact: true }).fill("Muna Esiene");
+    await page
+      .getByLabel("Synopsis", { exact: true })
+      .fill("A river guide returns home and finds the town negotiating memory, grief, and a new generation of filmmakers.");
+    await page
+      .locator(".admin-tag-grid .admin-field")
+      .filter({ hasText: "Languages covered" })
+      .locator("button")
+      .filter({ hasText: /^English$/ })
+      .click();
+    await page
+      .locator(".admin-tag-grid .admin-field")
+      .filter({ hasText: "Genres" })
+      .locator("button")
+      .filter({ hasText: /^Drama$/ })
+      .click();
+    await page.getByLabel("Trailer URL", { exact: true }).fill("https://example.com/trailers/river-spirits");
+    await page.getByRole("button", { name: "Publish record" }).click();
+
+    await expect(page.getByText("Record published locally.")).toBeVisible();
+    await expect(page.getByTestId("admin-preview-card")).toContainText("River Spirits");
+    await expect(page.getByTestId("admin-preview-card")).toContainText("Trailer ready");
+    await expect(page.getByText("Public links are available only for seeded catalogue titles in this demo.")).toBeVisible();
+    await expect(page.locator('a[href="/movies/river-spirits"]')).toHaveCount(0);
+    await expect(page.locator('a[href="/write-review/river-spirits"]')).toHaveCount(0);
+
+    await page.getByRole("button", { name: /Mambar Pierrette/ }).click();
+    await expect(page.locator('a[href="/movies/mambar-pierrette"]')).toBeVisible();
+    await expect(page.locator('a[href="/write-review/mambar-pierrette"]')).toBeVisible();
+  });
+
+  test("review surfaces keep film language context visible", async ({ page }) => {
+    await page.goto("/reviews");
+
+    await expect(page.getByText("Mambar Pierrette / French, Pidgin")).toBeVisible();
+    await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("French")).toBeVisible();
+    await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("Pidgin")).toBeVisible();
+  });
 });
