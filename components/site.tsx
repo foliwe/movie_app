@@ -1,9 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Search, Star, UserCircle } from "lucide-react";
+import { ArrowRight, CalendarDays, Languages, Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
-import { getMovieBySlug, type Movie, type Review } from "@/lib/movies";
+import { getMovieBySlug, type Movie, type Person, type Review } from "@/lib/movies";
 import { formatLanguageList, getGenreLabel, getLanguageLabel, getStatusLabel, type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
 
@@ -120,11 +122,12 @@ export function LanguageBadges({ languages }: { languages: string[] }) {
 
 export function MovieMeta({ movie }: { movie: Movie }) {
   const { locale } = useLocale();
+  const primaryGenre = movie.genres[0];
 
   return (
     <div className="hero-facts">
       <span>{movie.releaseYear}</span>
-      <span>{getGenreLabel(locale, movie.genres[0])}</span>
+      {primaryGenre ? <span>{getGenreLabel(locale, primaryGenre)}</span> : null}
       <span>{movie.country}</span>
       <span>
         {Math.floor(movie.runtimeMinutes / 60)}h {movie.runtimeMinutes % 60}m
@@ -139,24 +142,41 @@ export function MovieRow({
   href,
   isSelected,
   onClick,
+  variant = "badges",
 }: {
   movie: Movie;
   href?: string;
   isSelected?: boolean;
   onClick?: () => void;
+  variant?: "badges" | "meta";
 }) {
+  const { locale } = useLocale();
+  const footer: ReactNode =
+    variant === "meta" ? (
+      <div className="catalogue-meta">
+        <span>
+          <CalendarDays size={15} />
+          {movie.releaseYear}
+        </span>
+        <span>
+          <Languages size={15} />
+          {formatLanguageList(locale, movie.languages.slice(0, 2))}
+        </span>
+        <RatingPill rating={movie.rating} />
+      </div>
+    ) : (
+      <LanguageBadges languages={movie.languages.slice(0, 3)} />
+    );
+
   const content = (
     <>
       <PosterBlock movie={movie} className="catalogue-poster" />
       <div className="catalogue-copy">
         <h3>{movie.title}</h3>
         <p>{movie.synopsis}</p>
-        <LanguageBadges languages={movie.languages.slice(0, 3)} />
-        <div className="catalogue-meta">
-          <span>{movie.releaseYear}</span>
-          <RatingPill rating={movie.rating} />
-        </div>
+        {footer}
       </div>
+      {variant === "meta" ? <ArrowRight className="row-arrow" size={19} /> : null}
     </>
   );
 
@@ -172,6 +192,29 @@ export function MovieRow({
     <button type="button" className={clsx("catalogue-row", isSelected && "is-selected")} onClick={onClick}>
       {content}
     </button>
+  );
+}
+
+export function FreshReviewListItem({ review }: { review: Review }) {
+  return (
+    <article className="review-card fresh-review-item">
+      <div className="review-thumb poster-teal">
+        <strong>{review.movieTitle.split(" ")[0]}</strong>
+      </div>
+      <div>
+        <Link href={`/reviews/${review.slug}`}>
+          <h3>{review.movieTitle}</h3>
+        </Link>
+        <p>
+          <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
+        </p>
+        <span>{review.excerpt}</span>
+      </div>
+      <footer>
+        <strong>{review.author}</strong>
+        <span>{review.location}</span>
+      </footer>
+    </article>
   );
 }
 
@@ -223,5 +266,41 @@ export function PageHero({
       <h1>{title}</h1>
       <p className="lede">{body}</p>
     </section>
+  );
+}
+
+export function PersonAvatar({
+  person,
+  name,
+  className,
+}: {
+  person?: Pick<Person, "name" | "palette" | "photoUrl">;
+  name: string;
+  className?: string;
+}) {
+  const initials = name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  if (person?.photoUrl) {
+    return (
+      <div className={clsx("person-avatar", className)} data-testid="credit-avatar" data-photo-state="image">
+        <Image src={person.photoUrl} alt={`${name} portrait`} fill sizes="52px" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={clsx("person-avatar", "person-avatar-fallback", person ? `poster-${person.palette}` : "poster-teal", className)}
+      data-testid="credit-avatar"
+      data-photo-state="fallback"
+      aria-hidden="true"
+    >
+      <strong>{initials}</strong>
+    </div>
   );
 }

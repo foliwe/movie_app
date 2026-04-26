@@ -20,8 +20,15 @@ export type Movie = {
   posterUrl: string;
   backdropUrl: string;
   trailerUrl: string;
+  trailerEmbedUrl?: string;
+  galleryImages: GalleryImage[];
   cast: CastCredit[];
   crew: CrewCredit[];
+};
+
+export type GalleryImage = {
+  src: string;
+  alt: string;
 };
 
 export type Review = {
@@ -48,6 +55,7 @@ export type Person = {
   bio: string;
   knownFor: string[];
   palette: Movie["palette"];
+  photoUrl?: string;
 };
 
 export type CastCredit = {
@@ -95,6 +103,12 @@ export const movies: Movie[] = [
     posterUrl: "/assets/homepage-concept.png",
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/mambar-pierrette",
+    trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/8x4dLslD0aU",
+    galleryImages: [
+      { src: "/assets/gallery/still-amber-market.svg", alt: "Pierrette at her sewing table with folded fabrics stacked high." },
+      { src: "/assets/gallery/still-night-projection.svg", alt: "A glowing storefront scene after rainfall in Douala." },
+      { src: "/assets/gallery/still-rose-courtyard.svg", alt: "A courtyard conversation framed by hanging cloth and evening light." },
+    ],
     cast: [
       { personSlug: "pierrette-alene", name: "Pierrette Alene", character: "Pierrette" },
       { personSlug: "rosine-mbakam", name: "Rosine Mbakam", character: "Observer" },
@@ -125,6 +139,12 @@ export const movies: Movie[] = [
     posterUrl: "/assets/homepage-concept.png",
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/the-fishermans-diary",
+    trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/T0v8qK8tQ7Q",
+    galleryImages: [
+      { src: "/assets/gallery/still-teal-shore.svg", alt: "Ekah standing near fishing boats at first light." },
+      { src: "/assets/gallery/still-night-projection.svg", alt: "A classroom-like interior lit by a warm projector glow." },
+      { src: "/assets/gallery/still-green-home.svg", alt: "A family gathered in a timber house while a hard decision lands." },
+    ],
     cast: [
       { personSlug: "faith-fidel", name: "Faith Fidel", character: "Ekah" },
       { personSlug: "ramsey-nouah", name: "Ramsey Nouah", character: "Solomon" },
@@ -155,6 +175,12 @@ export const movies: Movie[] = [
     posterUrl: "/assets/homepage-concept.png",
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/ninahs-dowry",
+    trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/2uV0hHnB1Q8",
+    galleryImages: [
+      { src: "/assets/gallery/still-rose-courtyard.svg", alt: "Ninah crossing a sunlit courtyard with urgency." },
+      { src: "/assets/gallery/still-green-home.svg", alt: "A tense domestic interior with a crowded family gathering." },
+      { src: "/assets/gallery/still-amber-market.svg", alt: "An outdoor market path filled with movement and watchful faces." },
+    ],
     cast: [
       { personSlug: "mbufung-seikeh", name: "Mbufung Seikeh", character: "Ninah" },
       { personSlug: "nkem-owo", name: "Nkem Owoh", character: "Village elder" },
@@ -186,6 +212,12 @@ export const movies: Movie[] = [
     posterUrl: "/assets/homepage-concept.png",
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/muna-moto",
+    trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/r0s0Q7R7P9A",
+    galleryImages: [
+      { src: "/assets/gallery/still-ivory-village.svg", alt: "A village lane with two figures paused between conflict and intimacy." },
+      { src: "/assets/gallery/still-night-projection.svg", alt: "Restored film grain glowing over a nighttime gathering." },
+      { src: "/assets/gallery/still-amber-market.svg", alt: "A ceremonial crowd observed from the edge of the square." },
+    ],
     cast: [
       { personSlug: "david-enda", name: "David Enda", character: "Ngando" },
       { personSlug: "arlette-din-beli", name: "Arlette Din Beli", character: "Ndomé" },
@@ -216,6 +248,12 @@ export const movies: Movie[] = [
     posterUrl: "/assets/homepage-concept.png",
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
     trailerUrl: "https://example.com/trailers/beleh",
+    trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/IEh2-2-1K0k",
+    galleryImages: [
+      { src: "/assets/gallery/still-green-home.svg", alt: "A compressed living room scene charged with comic panic." },
+      { src: "/assets/gallery/still-rose-courtyard.svg", alt: "A confrontation outside the home as neighbors react." },
+      { src: "/assets/gallery/still-teal-shore.svg", alt: "A quiet exterior reset after the chaos inside." },
+    ],
     cast: [
       { personSlug: "sybille-yembe", name: "Sybille Yembe", character: "Pregnant wife" },
       { personSlug: "epule-jeffrey", name: "Epule Jeffrey", character: "Husband" },
@@ -288,6 +326,7 @@ export const people: Person[] = [
     bio: "A filmmaker whose work observes domestic labor, migration, memory, and women carrying entire worlds in ordinary rooms.",
     knownFor: ["Mambar Pierrette", "Chez Jolie Coiffure"],
     palette: "amber",
+    photoUrl: "/assets/people/portrait-amber-1.svg",
   },
   {
     id: "enah-johnscott",
@@ -298,6 +337,7 @@ export const people: Person[] = [
     bio: "A commercial and feature director known for accessible social dramas with a strong audience pulse.",
     knownFor: ["The Fisherman's Diary", "Half Heaven"],
     palette: "teal",
+    photoUrl: "/assets/people/portrait-teal-1.svg",
   },
   {
     id: "victor-viyuoh",
@@ -308,6 +348,7 @@ export const people: Person[] = [
     bio: "A filmmaker drawn to intimate stories where family power and social pressure shape private decisions.",
     knownFor: ["Ninah's Dowry"],
     palette: "rose",
+    photoUrl: "/assets/people/portrait-rose-1.svg",
   },
   {
     id: "jean-pierre-dikongue-pipa",
@@ -318,6 +359,7 @@ export const people: Person[] = [
     bio: "A foundational voice in Cameroonian cinema, best known for landmark dramas about custom, love, and power.",
     knownFor: ["Muna Moto"],
     palette: "ivory",
+    photoUrl: "/assets/people/portrait-ivory-1.svg",
   },
   {
     id: "christa-eka",
@@ -328,6 +370,7 @@ export const people: Person[] = [
     bio: "A director of sharp short-form stories that use humor and pressure to reveal everyday gender dynamics.",
     knownFor: ["Beleh"],
     palette: "green",
+    photoUrl: "/assets/people/portrait-green-1.svg",
   },
   {
     id: "faith-fidel",
@@ -338,6 +381,7 @@ export const people: Person[] = [
     bio: "A performer whose breakout role brought urgency and tenderness to a national education story.",
     knownFor: ["The Fisherman's Diary"],
     palette: "teal",
+    photoUrl: "/assets/people/portrait-teal-2.svg",
   },
   {
     id: "pierrette-alene",
@@ -348,6 +392,7 @@ export const people: Person[] = [
     bio: "A screen presence whose grounded performance anchors a portrait of work, patience, and everyday survival.",
     knownFor: ["Mambar Pierrette"],
     palette: "amber",
+    photoUrl: "/assets/people/portrait-amber-2.svg",
   },
   {
     id: "geoffrey-enthoven",
@@ -358,6 +403,7 @@ export const people: Person[] = [
     bio: "A producer attached to internationally traveling stories with a close eye on human-scale drama.",
     knownFor: ["Mambar Pierrette"],
     palette: "amber",
+    photoUrl: "/assets/people/portrait-amber-1.svg",
   },
   {
     id: "ramsey-nouah",
@@ -378,6 +424,7 @@ export const people: Person[] = [
     bio: "A producer focused on audience-facing Cameroon stories that can move between local rooms and festival circuits.",
     knownFor: ["The Fisherman's Diary"],
     palette: "teal",
+    photoUrl: "/assets/people/portrait-teal-1.svg",
   },
   {
     id: "mbufung-seikeh",
@@ -388,6 +435,7 @@ export const people: Person[] = [
     bio: "An actor recognized for emotionally direct performances in stories shaped by pressure, custom, and survival.",
     knownFor: ["Ninah's Dowry"],
     palette: "rose",
+    photoUrl: "/assets/people/portrait-rose-2.svg",
   },
   {
     id: "nkem-owo",
@@ -408,6 +456,7 @@ export const people: Person[] = [
     bio: "A producer associated with intimate independent work that examines gender, memory, and social expectation.",
     knownFor: ["Ninah's Dowry"],
     palette: "rose",
+    photoUrl: "/assets/people/portrait-rose-1.svg",
   },
   {
     id: "david-enda",
@@ -418,6 +467,7 @@ export const people: Person[] = [
     bio: "A performer remembered for helping define one of the essential faces of early Cameroon cinema.",
     knownFor: ["Muna Moto"],
     palette: "ivory",
+    photoUrl: "/assets/people/portrait-ivory-2.svg",
   },
   {
     id: "arlette-din-beli",
@@ -428,6 +478,7 @@ export const people: Person[] = [
     bio: "An actor whose work remains closely tied to landmark stories about love, custom, and social pressure.",
     knownFor: ["Muna Moto"],
     palette: "ivory",
+    photoUrl: "/assets/people/portrait-ivory-1.svg",
   },
   {
     id: "daniel-kamwa",
@@ -448,6 +499,7 @@ export const people: Person[] = [
     bio: "A performer who brings urgency and comic bite to short-form stories built around domestic tension.",
     knownFor: ["Beleh"],
     palette: "green",
+    photoUrl: "/assets/people/portrait-green-1.svg",
   },
   {
     id: "epule-jeffrey",
@@ -468,6 +520,7 @@ export const people: Person[] = [
     bio: "A producer connected to short-form projects that blend humor with close observation of gendered experience.",
     knownFor: ["Beleh"],
     palette: "green",
+    photoUrl: "/assets/people/portrait-green-1.svg",
   },
 ];
 

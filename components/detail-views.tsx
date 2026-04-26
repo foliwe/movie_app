@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, MessageSquare, Play, Star } from "lucide-react";
 import { WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
-import { LanguageBadges, MovieMeta, PageHero, PosterBlock, ReviewCard, SiteHeader } from "@/components/site";
+import { LanguageBadges, MovieMeta, MovieRow, PageHero, PersonAvatar, PosterBlock, ReviewCard, SiteHeader } from "@/components/site";
 import { getPersonBySlug, type Movie, type Person, type Review, type UserProfile } from "@/lib/movies";
 import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
@@ -15,6 +16,11 @@ const movieDetailCopy = {
     basedOn: "Based on",
     reviews: "reviews",
     watchTrailer: "Watch trailer",
+    trailer: "Trailer",
+    trailerFallback: "Open trailer",
+    gallery: "Gallery",
+    stills: "stills",
+    noGallery: "No gallery images are available for this film yet.",
     writeReview: "Write review",
     cast: "Cast",
     findPeople: "Find people",
@@ -30,6 +36,11 @@ const movieDetailCopy = {
     basedOn: "Base sur",
     reviews: "critiques",
     watchTrailer: "Voir la bande-annonce",
+    trailer: "Bande-annonce",
+    trailerFallback: "Ouvrir la bande-annonce",
+    gallery: "Galerie",
+    stills: "images",
+    noGallery: "Aucune image de galerie n'est disponible pour ce film pour le moment.",
     writeReview: "Ecrire une critique",
     cast: "Distribution",
     findPeople: "Trouver des artistes",
@@ -138,6 +149,54 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
         <PosterBlock movie={movie} className="detail-poster" />
       </section>
 
+      <section className="split-band detail-grid detail-media-section" data-testid="movie-media-section">
+        <div className="panel media-panel">
+          <div className="panel-heading">
+            <h2>{t.trailer}</h2>
+            {!movie.trailerEmbedUrl ? (
+              <a href={movie.trailerUrl}>
+                {t.trailerFallback}
+                <ArrowRight size={16} />
+              </a>
+            ) : null}
+          </div>
+          {movie.trailerEmbedUrl ? (
+            <div className="trailer-frame">
+              <iframe
+                title={`${movie.title} trailer`}
+                src={movie.trailerEmbedUrl}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <a className="detail-action media-fallback-action" href={movie.trailerUrl}>
+              {t.watchTrailer}
+              <ArrowRight size={18} />
+            </a>
+          )}
+        </div>
+        <div className="panel media-panel">
+          <div className="panel-heading">
+            <h2>{t.gallery}</h2>
+            <span>
+              {movie.galleryImages.length} {t.stills}
+            </span>
+          </div>
+          {movie.galleryImages.length > 0 ? (
+            <div className="gallery-grid" data-testid="movie-gallery">
+              {movie.galleryImages.map((image) => (
+                <figure key={image.src} className="gallery-still">
+                  <Image src={image.src} alt={image.alt} fill sizes="(max-width: 780px) 100vw, 33vw" />
+                </figure>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">{t.noGallery}</p>
+          )}
+        </div>
+      </section>
+
       <section className="split-band detail-grid">
         <div className="panel">
           <div className="panel-heading">
@@ -205,16 +264,22 @@ function PersonCreditLink({
   if (!person) {
     return (
       <div className="credit-entry">
-        <strong>{primaryText}</strong>
-        <span>{secondaryText}</span>
+        <PersonAvatar name={primaryText} />
+        <div className="credit-copy">
+          <strong>{primaryText}</strong>
+          <span>{secondaryText}</span>
+        </div>
       </div>
     );
   }
 
   return (
     <Link href={`/people/${personSlug}`}>
-      <strong>{primaryText}</strong>
-      <span>{secondaryText}</span>
+      <PersonAvatar person={person} name={primaryText} />
+      <div className="credit-copy">
+        <strong>{primaryText}</strong>
+        <span>{secondaryText}</span>
+      </div>
       <ArrowRight size={17} />
     </Link>
   );
@@ -259,14 +324,7 @@ export function PersonDetailView({ person, credits }: { person: Person; credits:
           </div>
           <div className="catalogue-list">
             {credits.map((movie) => (
-              <Link key={movie.id} href={`/movies/${movie.slug}`} className="catalogue-row">
-                <PosterBlock movie={movie} className="catalogue-poster" />
-                <div className="catalogue-copy">
-                  <h3>{movie.title}</h3>
-                  <p>{movie.synopsis}</p>
-                  <LanguageBadges languages={movie.languages.slice(0, 3)} />
-                </div>
-              </Link>
+              <MovieRow key={movie.id} movie={movie} href={`/movies/${movie.slug}`} />
             ))}
           </div>
         </div>

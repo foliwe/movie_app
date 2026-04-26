@@ -1143,6 +1143,10 @@ blockquote cite {
   padding-top: 34px;
 }
 
+.detail-media-section {
+  padding-top: 24px;
+}
+
 .credit-list,
 .stacked-list,
 .auth-form {
@@ -1157,34 +1161,120 @@ blockquote cite {
 .credit-list a,
 .credit-entry {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  min-height: 54px;
-  padding: 0 14px;
+  min-height: 76px;
+  padding: 10px 14px;
   border: 1px solid var(--line);
   color: rgba(243, 236, 220, 0.84);
   background: rgba(243, 236, 220, 0.035);
+}
+
+.credit-entry {
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .credit-list a:hover {
   border-color: rgba(84, 197, 173, 0.6);
 }
 
-.credit-list strong {
+.credit-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.credit-copy strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.credit-list span {
+.credit-copy span {
   color: var(--muted);
   font-size: 0.84rem;
 }
 
-.credit-list a .language-badges {
-  grid-column: 1 / -1;
-  margin-bottom: 0;
+.person-avatar {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 1px solid rgba(84, 197, 173, 0.22);
+  border-radius: 50%;
+  background: rgba(243, 236, 220, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(243, 236, 220, 0.05);
+}
+
+.person-avatar img {
+  object-fit: cover;
+}
+
+.person-avatar-fallback {
+  display: grid;
+  place-items: center;
+}
+
+.person-avatar-fallback strong {
+  position: relative;
+  z-index: 1;
+  color: #070c0d;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.media-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.trailer-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at top, rgba(84, 197, 173, 0.15), transparent 45%),
+    rgba(7, 12, 13, 0.84);
+}
+
+.trailer-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.media-fallback-action {
+  width: 100%;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gallery-still {
+  position: relative;
+  aspect-ratio: 1.42 / 1;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(84, 197, 173, 0.08), transparent 46%),
+    rgba(10, 16, 17, 0.9);
+}
+
+.gallery-still img {
+  object-fit: cover;
+}
+
+.fresh-review-item h3 {
+  font-size: 1.02rem;
 }
 
 .expanded-review {
@@ -2152,6 +2242,10 @@ blockquote cite {
     max-width: 360px;
   }
 
+  .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .expanded-review {
     grid-template-columns: 76px 1fr;
   }
@@ -2271,11 +2365,15 @@ blockquote cite {
 
   .credit-list a,
   .credit-entry {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .credit-list span {
-    grid-column: 1 / -1;
+  .credit-entry {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .gallery-grid {
+    grid-template-columns: 1fr;
   }
 }
 
