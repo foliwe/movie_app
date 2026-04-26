@@ -56,6 +56,30 @@ test.describe("movie app smoke suite", () => {
     await expect(page.getByText("Mock account flow completed.")).toBeVisible();
   });
 
+  test("write review restores local drafts and resets after publish", async ({ page }) => {
+    await page.goto("/write-review/mambar-pierrette");
+
+    await page.getByLabel("Review title", { exact: true }).fill("Measured, intimate, unforgettable");
+    await page
+      .getByLabel("Your review", { exact: true })
+      .fill("A beautifully observed portrait that keeps revealing character through routine, labour, and pressure.");
+    await page.getByLabel("Contains spoilers", { exact: true }).check();
+    await page.getByRole("button", { name: "Save draft locally" }).click();
+
+    await expect(page.getByText("Draft saved locally on this device.")).toBeVisible();
+    await expect(page.getByTestId("review-preview-card")).toContainText("Spoilers flagged");
+
+    await page.reload();
+    await expect(page.getByText("Saved draft restored for this title.")).toBeVisible();
+    await expect(page.getByLabel("Review title", { exact: true })).toHaveValue("Measured, intimate, unforgettable");
+    await expect(page.getByLabel("Contains spoilers", { exact: true })).toBeChecked();
+
+    await page.getByRole("button", { name: "Publish mock review" }).click();
+    await expect(page.getByText("Review saved locally for the Phase 1 demo.")).toBeVisible();
+    await expect(page.getByLabel("Review title", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Contains spoilers", { exact: true })).not.toBeChecked();
+  });
+
   test("admin movie desk previews and publishes a new draft", async ({ page }) => {
     await page.goto("/admin/movies");
 
@@ -85,5 +109,13 @@ test.describe("movie app smoke suite", () => {
     await expect(page.getByTestId("admin-preview-card")).toContainText("Trailer ready");
     await expect(page.locator('a[href="/movies/river-spirits"]')).toBeVisible();
     await expect(page.locator('a[href="/write-review/river-spirits"]')).toBeVisible();
+  });
+
+  test("review surfaces keep film language context visible", async ({ page }) => {
+    await page.goto("/reviews");
+
+    await expect(page.getByText("Mambar Pierrette / French, Pidgin")).toBeVisible();
+    await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("French")).toBeVisible();
+    await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("Pidgin")).toBeVisible();
   });
 });

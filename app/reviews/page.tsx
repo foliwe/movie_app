@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
-import { PageHero, ReviewCard, SiteHeader } from "@/components/site";
+import { LanguageBadges, PageHero, ReviewCard, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
 import { type Locale } from "@/lib/i18n";
 import { movies, reviews } from "@/lib/movies";
@@ -62,6 +62,7 @@ export default function ReviewsPage() {
               <Link href={`/write-review/${movie.slug}`} key={movie.id}>
                 <strong>{movie.title}</strong>
                 <span>{movie.rating.toFixed(1)}/10</span>
+                <LanguageBadges languages={movie.languages.slice(0, 2)} />
               </Link>
             ))}
           </div>

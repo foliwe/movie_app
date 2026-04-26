@@ -1182,6 +1182,11 @@ blockquote cite {
   font-size: 0.84rem;
 }
 
+.credit-list a .language-badges {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
 .expanded-review {
   grid-template-columns: 82px minmax(0, 1fr) 110px;
   padding-inline: 0;
@@ -1255,6 +1260,10 @@ blockquote cite {
   cursor: pointer;
 }
 
+.auth-form .secondary-action {
+  cursor: pointer;
+}
+
 .auth-form .primary-action:disabled {
   cursor: wait;
   opacity: 0.78;
@@ -1287,6 +1296,164 @@ blockquote cite {
   color: var(--teal);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.review-insight-grid,
+.review-form-actions,
+.review-preview-topline,
+.review-preview-footer {
+  display: flex;
+  align-items: center;
+}
+
+.review-insight-grid {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.review-insight-card {
+  flex: 1 1 150px;
+  display: grid;
+  gap: 6px;
+  min-height: 86px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: rgba(243, 236, 220, 0.03);
+}
+
+.review-insight-card span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.review-insight-card strong {
+  font-size: 1rem;
+}
+
+.review-insight-card.is-success strong {
+  color: var(--teal);
+}
+
+.review-insight-card.is-warning strong {
+  color: var(--amber);
+}
+
+.checkbox-field .checkbox-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 48px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: rgba(243, 236, 220, 0.035);
+}
+
+.checkbox-field input {
+  width: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--amber);
+}
+
+.checkbox-field small {
+  color: rgba(243, 236, 220, 0.72);
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+.review-form-actions {
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.review-form-actions .primary-action,
+.review-form-actions .secondary-action {
+  min-width: 220px;
+  border: 0;
+}
+
+.review-secondary-action {
+  color: rgba(243, 236, 220, 0.9);
+  background: rgba(243, 236, 220, 0.06);
+}
+
+.review-preview-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(84, 197, 173, 0.08), transparent 34%),
+    rgba(10, 16, 17, 0.92);
+}
+
+.review-preview-heading {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.review-preview-heading p {
+  margin: 8px 0 0;
+  color: rgba(243, 236, 220, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.review-preview-topline,
+.review-preview-footer {
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.review-preview-topline > span:first-child {
+  color: var(--amber);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.review-preview-card h3 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.review-preview-card p {
+  margin: 0;
+  color: rgba(243, 236, 220, 0.82);
+  line-height: 1.65;
+}
+
+.review-preview-chip,
+.review-card-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--teal);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.review-preview-chip.is-warning {
+  color: var(--amber);
+}
+
+.review-card-context {
+  margin-bottom: 6px;
+}
+
+.review-preview-footer strong {
+  color: var(--text);
+  font-size: 0.95rem;
 }
 
 .spin {
