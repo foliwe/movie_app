@@ -375,6 +375,8 @@ export default function AdminMoviesPage() {
       posterUrl: "/assets/homepage-concept.png",
       backdropUrl: "/assets/cameroon-cinema-backdrop.png",
       trailerUrl: "",
+      trailerEmbedUrl: "",
+      galleryImages: [],
       cast: [],
       crew: [],
     };

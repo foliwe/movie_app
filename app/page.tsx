@@ -3,18 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  ArrowRight,
-  CalendarDays,
-  Clock3,
-  Languages,
-  MessageSquare,
-  Play,
-  SlidersHorizontal,
-  Star,
-} from "lucide-react";
+import { ArrowRight, Clock3, MessageSquare, Play, SlidersHorizontal, Star } from "lucide-react";
 import clsx from "clsx";
-import { SiteHeader } from "@/components/site";
+import { FreshReviewListItem, MovieRow, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
 import { formatLanguageList, getGenreLabel, getLanguageLabel, type Locale } from "@/lib/i18n";
 import { genres, languages, movies, reviews } from "@/lib/movies";
@@ -220,24 +211,7 @@ export default function Home() {
             <Link href="/reviews">{t.viewAll}</Link>
           </div>
           {reviews.map((review) => (
-            <article key={review.id} className="review-card">
-              <div className="review-thumb poster-teal">
-                <strong>{review.movieTitle.split(" ")[0]}</strong>
-              </div>
-              <div>
-                <Link href={`/reviews/${review.slug}`}>
-                  <h3>{review.movieTitle}</h3>
-                </Link>
-                <p>
-                  <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
-                </p>
-                <span>{review.excerpt}</span>
-              </div>
-              <footer>
-                <strong>{review.author}</strong>
-                <span>{review.location}</span>
-              </footer>
-            </article>
+            <FreshReviewListItem key={review.id} review={review} />
           ))}
         </aside>
       </section>
@@ -293,35 +267,13 @@ export default function Home() {
         <div className="catalogue-layout">
           <div className="catalogue-list">
             {filteredMovies.map((movie) => (
-              <button
-                type="button"
+              <MovieRow
                 key={movie.id}
-                className={clsx("catalogue-row", selectedMovie === movie.id && "is-selected")}
+                movie={movie}
+                isSelected={selectedMovie === movie.id}
                 onClick={() => setSelectedMovie(movie.id)}
-              >
-                <div className={clsx("catalogue-poster", `poster-${movie.palette}`)}>
-                  <strong>{movie.title}</strong>
-                </div>
-                <div className="catalogue-copy">
-                  <h3>{movie.title}</h3>
-                  <p>{movie.synopsis}</p>
-                  <div className="catalogue-meta">
-                    <span>
-                      <CalendarDays size={15} />
-                      {movie.releaseYear}
-                    </span>
-                    <span>
-                      <Languages size={15} />
-                      {formatLanguageList(locale, movie.languages.slice(0, 2))}
-                    </span>
-                    <strong>
-                      <Star size={15} fill="currentColor" />
-                      {movie.rating.toFixed(1)}
-                    </strong>
-                  </div>
-                </div>
-                <ArrowRight className="row-arrow" size={19} />
-              </button>
+                variant="meta"
+              />
             ))}
           </div>
 

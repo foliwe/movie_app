@@ -123,4 +123,14 @@ test.describe("movie app smoke suite", () => {
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("French")).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("Pidgin")).toBeVisible();
   });
+
+  test("movie detail page shows trailer, gallery, and cast portraits", async ({ page }) => {
+    await page.goto("/movies/the-fishermans-diary");
+
+    await expect(page.getByTestId("movie-media-section")).toBeVisible();
+    await expect(page.getByTitle("The Fisherman's Diary trailer")).toBeVisible();
+    await expect(page.getByTestId("movie-gallery").locator("img")).toHaveCount(3);
+    await expect(page.locator('[data-testid="credit-avatar"]')).toHaveCount(4);
+    await expect(page.locator('[data-testid="credit-avatar"][data-photo-state="fallback"]')).toHaveCount(1);
+  });
 });
