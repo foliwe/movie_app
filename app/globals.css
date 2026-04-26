@@ -1854,6 +1854,13 @@ blockquote cite {
   gap: 12px;
 }
 
+.admin-preview-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
 .admin-preview-actions .detail-action {
   min-width: 218px;
 }

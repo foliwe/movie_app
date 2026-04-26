@@ -107,8 +107,13 @@ test.describe("movie app smoke suite", () => {
     await expect(page.getByText("Record published locally.")).toBeVisible();
     await expect(page.getByTestId("admin-preview-card")).toContainText("River Spirits");
     await expect(page.getByTestId("admin-preview-card")).toContainText("Trailer ready");
-    await expect(page.locator('a[href="/movies/river-spirits"]')).toBeVisible();
-    await expect(page.locator('a[href="/write-review/river-spirits"]')).toBeVisible();
+    await expect(page.getByText("Public links are available only for seeded catalogue titles in this demo.")).toBeVisible();
+    await expect(page.locator('a[href="/movies/river-spirits"]')).toHaveCount(0);
+    await expect(page.locator('a[href="/write-review/river-spirits"]')).toHaveCount(0);
+
+    await page.getByRole("button", { name: /Mambar Pierrette/ }).click();
+    await expect(page.locator('a[href="/movies/mambar-pierrette"]')).toBeVisible();
+    await expect(page.locator('a[href="/write-review/mambar-pierrette"]')).toBeVisible();
   });
 
   test("review surfaces keep film language context visible", async ({ page }) => {

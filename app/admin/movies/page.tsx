@@ -94,6 +94,7 @@ const copy = {
     previewTrailerPending: "Trailer pending",
     openPublicPage: "Open public page",
     openReviewRoute: "Open review route",
+    previewLinksUnavailable: "Public links are available only for seeded catalogue titles in this demo.",
     draftStatus: "Draft",
     publishedStatus: "Published",
   },
@@ -162,6 +163,7 @@ const copy = {
     previewTrailerPending: "Bande-annonce en attente",
     openPublicPage: "Ouvrir la page publique",
     openReviewRoute: "Ouvrir la route critique",
+    previewLinksUnavailable: "Les liens publics sont disponibles seulement pour les titres catalogue precharges dans cette demo.",
     draftStatus: "Brouillon",
     publishedStatus: "Publie",
   },
@@ -223,6 +225,8 @@ export default function AdminMoviesPage() {
         genres: t.taxonomy,
       })
     : [];
+  const canOpenPublicPreview =
+    selectedMovie !== null && movies.some((movie) => movie.id === selectedMovie.id && movie.slug === selectedMovie.slug);
 
   function updateSelectedMovie(updater: (movie: Movie) => Movie) {
     setRecords((current) =>
@@ -729,12 +733,18 @@ export default function AdminMoviesPage() {
                         {selectedMovie.languages.length > 0 ? <LanguageBadges languages={selectedMovie.languages} /> : null}
 
                         <div className="admin-preview-actions">
-                          <Link className="detail-action" href={`/movies/${selectedMovie.slug}`}>
-                            {t.openPublicPage}
-                          </Link>
-                          <Link className="detail-action admin-preview-secondary" href={`/write-review/${selectedMovie.slug}`}>
-                            {t.openReviewRoute}
-                          </Link>
+                          {canOpenPublicPreview ? (
+                            <>
+                              <Link className="detail-action" href={`/movies/${selectedMovie.slug}`}>
+                                {t.openPublicPage}
+                              </Link>
+                              <Link className="detail-action admin-preview-secondary" href={`/write-review/${selectedMovie.slug}`}>
+                                {t.openReviewRoute}
+                              </Link>
+                            </>
+                          ) : (
+                            <p className="admin-preview-note">{t.previewLinksUnavailable}</p>
+                          )}
                         </div>
                       </div>
                     </div>
