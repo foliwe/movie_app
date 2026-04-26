@@ -1154,7 +1154,8 @@ blockquote cite {
   margin-top: 14px;
 }
 
-.credit-list a {
+.credit-list a,
+.credit-entry {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
@@ -1980,7 +1981,8 @@ blockquote cite {
     grid-template-columns: 1fr;
   }
 
-  .credit-list a {
+  .credit-list a,
+  .credit-entry {
     grid-template-columns: 1fr auto;
   }
 

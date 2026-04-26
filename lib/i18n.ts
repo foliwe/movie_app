@@ -12,17 +12,21 @@ const genreLabels = {
   en: {
     All: "All",
     Drama: "Drama",
+    Biography: "Biography",
     Classic: "Classic",
     Comedy: "Comedy",
     Education: "Education",
+    "Slice of life": "Slice of life",
     Short: "Short",
   },
   fr: {
     All: "Tous",
     Drama: "Drame",
+    Biography: "Biographie",
     Classic: "Classique",
     Comedy: "Comedie",
     Education: "Education",
+    "Slice of life": "Chronique du quotidien",
     Short: "Court",
   },
 } as const;
@@ -80,10 +84,14 @@ const roleLabels = {
   en: {
     Director: "Director",
     Actor: "Actor",
+    Producer: "Producer",
+    "Creative advisor": "Creative advisor",
   },
   fr: {
     Director: "Realisateur",
     Actor: "Acteur",
+    Producer: "Producteur",
+    "Creative advisor": "Conseiller creatif",
   },
 } as const;
 
@@ -112,7 +120,13 @@ export function formatLanguageList(locale: Locale, values: string[]) {
 }
 
 export function formatPublishedDate(locale: Locale, value: string) {
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const parsedDate = dateOnlyMatch
+    ? new Date(Date.UTC(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]), 12))
+    : new Date(value);
+
   return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", {
     dateStyle: "medium",
-  }).format(new Date(value));
+    timeZone: dateOnlyMatch ? "UTC" : undefined,
+  }).format(parsedDate);
 }

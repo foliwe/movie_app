@@ -5,7 +5,7 @@ import { ArrowRight, MessageSquare, Play, Star } from "lucide-react";
 import { WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
 import { LanguageBadges, MovieMeta, PageHero, PosterBlock, ReviewCard, SiteHeader } from "@/components/site";
-import type { Movie, Person, Review, UserProfile } from "@/lib/movies";
+import { getPersonBySlug, type Movie, type Person, type Review, type UserProfile } from "@/lib/movies";
 import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
 const movieDetailCopy = {
@@ -146,11 +146,12 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
           </div>
           <div className="credit-list">
             {movie.cast.map((credit) => (
-              <Link href={`/people/${credit.personSlug}`} key={`${credit.personSlug}-${credit.character}`}>
-                <strong>{credit.name}</strong>
-                <span>{credit.character}</span>
-                <ArrowRight size={17} />
-              </Link>
+              <PersonCreditLink
+                key={`${credit.personSlug}-${credit.character}`}
+                personSlug={credit.personSlug}
+                primaryText={credit.name}
+                secondaryText={credit.character}
+              />
             ))}
           </div>
         </div>
@@ -162,11 +163,12 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
           <LanguageBadges languages={movie.languages} />
           <div className="credit-list top-spaced">
             {movie.crew.map((credit) => (
-              <Link href={`/people/${credit.personSlug}`} key={`${credit.personSlug}-${credit.job}`}>
-                <strong>{credit.name}</strong>
-                <span>{credit.job}</span>
-                <ArrowRight size={17} />
-              </Link>
+              <PersonCreditLink
+                key={`${credit.personSlug}-${credit.job}`}
+                personSlug={credit.personSlug}
+                primaryText={credit.name}
+                secondaryText={credit.job}
+              />
             ))}
           </div>
         </div>
@@ -186,6 +188,35 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
         </div>
       </section>
     </main>
+  );
+}
+
+function PersonCreditLink({
+  personSlug,
+  primaryText,
+  secondaryText,
+}: {
+  personSlug: string;
+  primaryText: string;
+  secondaryText: string;
+}) {
+  const person = getPersonBySlug(personSlug);
+
+  if (!person) {
+    return (
+      <div className="credit-entry">
+        <strong>{primaryText}</strong>
+        <span>{secondaryText}</span>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/people/${personSlug}`}>
+      <strong>{primaryText}</strong>
+      <span>{secondaryText}</span>
+      <ArrowRight size={17} />
+    </Link>
   );
 }
 
