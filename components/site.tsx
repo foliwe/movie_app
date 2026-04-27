@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Languages, Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
-import { getMovieBySlug, type Movie, type Person, type Review } from "@/lib/movies";
+import type { Movie, Person, Review } from "@/lib/movies";
 import { formatLanguageList, getGenreLabel, getLanguageLabel, getStatusLabel, type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
 
@@ -220,7 +220,7 @@ export function FreshReviewListItem({ review }: { review: Review }) {
 
 export function ReviewCard({ review }: { review: Review }) {
   const { locale } = useLocale();
-  const movie = getMovieBySlug(review.movieSlug);
+  const movieLanguages = review.movieLanguages ?? [];
 
   return (
     <article className="review-card expanded-review">
@@ -228,9 +228,9 @@ export function ReviewCard({ review }: { review: Review }) {
         <strong>{review.movieTitle.split(" ")[0]}</strong>
       </div>
       <div>
-        {movie ? (
+        {movieLanguages.length > 0 ? (
           <small className="review-card-context">
-            {review.movieTitle} / {formatLanguageList(locale, movie.languages.slice(0, 2))}
+            {review.movieTitle} / {formatLanguageList(locale, movieLanguages.slice(0, 2))}
           </small>
         ) : null}
         <Link href={`/reviews/${review.slug}`}>

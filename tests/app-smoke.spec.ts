@@ -84,6 +84,7 @@ test.describe("movie app smoke suite", () => {
     await page.goto("/admin/movies");
 
     await page.getByRole("button", { name: "New draft" }).click();
+    await expect(page.getByText("Draft created in the database.")).toBeVisible();
     await page.getByLabel("Title", { exact: true }).fill("River Spirits");
     await page.getByLabel("Director", { exact: true }).fill("Muna Esiene");
     await page
@@ -104,12 +105,11 @@ test.describe("movie app smoke suite", () => {
     await page.getByLabel("Trailer URL", { exact: true }).fill("https://example.com/trailers/river-spirits");
     await page.getByRole("button", { name: "Publish record" }).click();
 
-    await expect(page.getByText("Record published locally.")).toBeVisible();
+    await expect(page.getByText("Record published to the database.")).toBeVisible();
     await expect(page.getByTestId("admin-preview-card")).toContainText("River Spirits");
     await expect(page.getByTestId("admin-preview-card")).toContainText("Trailer ready");
-    await expect(page.getByText("Public links are available only for seeded catalogue titles in this demo.")).toBeVisible();
-    await expect(page.locator('a[href="/movies/river-spirits"]')).toHaveCount(0);
-    await expect(page.locator('a[href="/write-review/river-spirits"]')).toHaveCount(0);
+    await expect(page.locator('a[href^="/movies/river-spirits"]')).toBeVisible();
+    await expect(page.locator('a[href^="/write-review/river-spirits"]')).toBeVisible();
 
     await page.getByRole("button", { name: /Mambar Pierrette/ }).click();
     await expect(page.locator('a[href="/movies/mambar-pierrette"]')).toBeVisible();

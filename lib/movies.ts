@@ -44,6 +44,7 @@ export type Review = {
   excerpt: string;
   body: string;
   publishedAt: string;
+  movieLanguages?: string[];
 };
 
 export type Person = {
@@ -62,12 +63,16 @@ export type CastCredit = {
   personSlug: string;
   name: string;
   character: string;
+  photoUrl?: string;
+  palette?: Movie["palette"];
 };
 
 export type CrewCredit = {
   personSlug: string;
   name: string;
   job: string;
+  photoUrl?: string;
+  palette?: Movie["palette"];
 };
 
 export type UserProfile = {

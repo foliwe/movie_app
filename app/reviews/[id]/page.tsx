@@ -1,20 +1,18 @@
 import { notFound } from "next/navigation";
 import { ReviewDetailView } from "@/components/detail-views";
-import { getMovieBySlug, getReviewBySlug, reviews } from "@/lib/movies";
+import { getCatalogueMovieBySlug, getCatalogueReviewByIdOrSlug } from "@/lib/catalog-data";
 
-export function generateStaticParams() {
-  return reviews.map((review) => ({ id: review.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const review = getReviewBySlug(id);
+  const review = await getCatalogueReviewByIdOrSlug(id);
 
   if (!review) {
     notFound();
   }
 
-  const movie = getMovieBySlug(review.movieSlug);
+  const movie = (await getCatalogueMovieBySlug(review.movieSlug)) ?? undefined;
 
   return <ReviewDetailView review={review} movie={movie} />;
 }

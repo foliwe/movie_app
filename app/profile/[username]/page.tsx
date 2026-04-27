@@ -1,20 +1,18 @@
 import { notFound } from "next/navigation";
 import { ProfileDetailView } from "@/components/detail-views";
-import { getProfileByUsername, reviews, userProfiles } from "@/lib/movies";
+import { getCatalogueProfileByUsername, getReviewsByUsername } from "@/lib/catalog-data";
 
-export function generateStaticParams() {
-  return userProfiles.map((profile) => ({ username: profile.username }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  const profile = getProfileByUsername(username);
+  const profile = await getCatalogueProfileByUsername(username);
 
   if (!profile) {
     notFound();
   }
 
-  const authoredReviews = reviews.filter((review) => review.username === profile.username);
+  const authoredReviews = await getReviewsByUsername(profile.username);
 
   return <ProfileDetailView profile={profile} authoredReviews={authoredReviews} />;
 }

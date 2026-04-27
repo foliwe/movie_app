@@ -6,7 +6,7 @@ import { ArrowRight, MessageSquare, Play, Star } from "lucide-react";
 import { WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
 import { LanguageBadges, MovieMeta, MovieRow, PageHero, PersonAvatar, PosterBlock, ReviewCard, SiteHeader } from "@/components/site";
-import { getPersonBySlug, type Movie, type Person, type Review, type UserProfile } from "@/lib/movies";
+import type { Movie, Person, Review, UserProfile } from "@/lib/movies";
 import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
 const movieDetailCopy = {
@@ -210,6 +210,8 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
                 personSlug={credit.personSlug}
                 primaryText={credit.name}
                 secondaryText={credit.character}
+                photoUrl={credit.photoUrl}
+                palette={credit.palette}
               />
             ))}
           </div>
@@ -227,6 +229,8 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
                 personSlug={credit.personSlug}
                 primaryText={credit.name}
                 secondaryText={credit.job}
+                photoUrl={credit.photoUrl}
+                palette={credit.palette}
               />
             ))}
           </div>
@@ -254,14 +258,16 @@ function PersonCreditLink({
   personSlug,
   primaryText,
   secondaryText,
+  photoUrl,
+  palette,
 }: {
   personSlug: string;
   primaryText: string;
   secondaryText: string;
+  photoUrl?: string;
+  palette?: Movie["palette"];
 }) {
-  const person = getPersonBySlug(personSlug);
-
-  if (!person) {
+  if (!photoUrl && !palette) {
     return (
       <div className="credit-entry">
         <PersonAvatar name={primaryText} />
@@ -275,7 +281,7 @@ function PersonCreditLink({
 
   return (
     <Link href={`/people/${personSlug}`}>
-      <PersonAvatar person={person} name={primaryText} />
+      <PersonAvatar person={{ name: primaryText, photoUrl, palette: palette ?? "teal" }} name={primaryText} />
       <div className="credit-copy">
         <strong>{primaryText}</strong>
         <span>{secondaryText}</span>
