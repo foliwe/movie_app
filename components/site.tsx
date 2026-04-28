@@ -58,7 +58,6 @@ export function SiteHeader() {
     { label: t.reviews, href: "/reviews" },
     { label: t.search, href: "/search" },
     { label: t.people, href: "/people/rosine-mbakam" },
-    { label: t.profiles, href: "/profile/aline-n" },
     ...(authUser ? [{ label: t.account, href: "/account/profile" }] : []),
     ...(authUser?.role === "Admin" ? [{ label: t.admin, href: "/admin/movies" }] : []),
   ];

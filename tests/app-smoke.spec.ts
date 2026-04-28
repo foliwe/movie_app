@@ -3,6 +3,63 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgresql://movieapp:movieapp@localhost:5432/movieapp";
+const mailpitBaseUrl = process.env.MAILPIT_BASE_URL ?? "http://127.0.0.1:8025";
+
+type MailpitSearchResponse = {
+  messages: Array<{
+    ID: string;
+  }>;
+};
+
+type MailpitMessage = {
+  ID: string;
+  Text: string;
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getMailpitMessageById(id: string) {
+  const response = await fetch(`${mailpitBaseUrl}/api/v1/message/${encodeURIComponent(id)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to load Mailpit message ${id}: ${response.status}`);
+  }
+
+  return (await response.json()) as MailpitMessage;
+}
+
+async function waitForLatestMailpitMessage(recipient: string, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const query = encodeURIComponent(`to:${recipient}`);
+    const response = await fetch(`${mailpitBaseUrl}/api/v1/search?query=${query}&limit=1`);
+
+    if (response.ok) {
+      const payload = (await response.json()) as MailpitSearchResponse;
+      const latestId = payload.messages[0]?.ID;
+
+      if (latestId) {
+        return getMailpitMessageById(latestId);
+      }
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for a Mailpit message for ${recipient}.`);
+}
+
+function extractResetLink(messageText: string) {
+  const match = messageText.match(/https?:\/\/[^\s]+\/reset-password\/[^\s]+/);
+
+  if (!match) {
+    throw new Error("Reset link not found in Mailpit message.");
+  }
+
+  return match[0];
+}
 
 function hashPasswordResetToken(token: string) {
   return createHash("sha256").update(token).digest("base64url");
@@ -140,6 +197,45 @@ test.describe("movie app smoke suite", () => {
     await page.getByRole("button", { name: "Send reset link" }).click();
     await expect(page.getByText("If that account exists, we recorded the reset request.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open reset link" })).toHaveCount(0);
+  });
+
+  test("forgot-password sends a reset email through Mailpit", async ({ page }) => {
+    const email = `mailpit-reset-${Date.now()}@example.com`;
+    const oldPassword = "password123";
+    const newPassword = "newpassword123";
+
+    await page.goto("/register");
+    await page.getByPlaceholder("Aline N.").fill("Mailpit Reset Smoke");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    await page.request.post("/api/auth/logout");
+    await page.goto("/forgot-password");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByRole("button", { name: "Send reset link" }).click();
+    await expect(page.getByText("If that account exists, we recorded the reset request.")).toBeVisible();
+
+    const resetMessage = await waitForLatestMailpitMessage(email);
+    expect(resetMessage.Text).toContain("This reset link expires in 30 minutes.");
+
+    const resetLink = extractResetLink(resetMessage.Text);
+    await page.goto(resetLink);
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByPlaceholder("Repeat your new password").fill(newPassword);
+    await page.getByRole("button", { name: "Save new password" }).click();
+    await expect(page.getByText("Password updated. Sign in with your new password.")).toBeVisible();
+
+    await page.goto("/login");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Email or password is incorrect.")).toBeVisible();
+
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
   });
 
   test("password reset handles invalid, expired, reused tokens and invalidates prior sessions", async ({ page }) => {
