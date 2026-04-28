@@ -26,6 +26,14 @@ export function normalizeDisplayName(displayName: string) {
   return displayName.trim().replace(/\s+/g, " ");
 }
 
+export function normalizeSingleLineText(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+export function normalizeTextarea(value: string) {
+  return value.trim();
+}
+
 export function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -314,4 +322,44 @@ export async function resetPasswordWithToken(token: string, password: string) {
       email: tokenRecord.user.email,
     };
   });
+}
+
+export async function changePasswordForUser(userId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+    },
+  });
+
+  if (!user || !currentPassword || !verifyPassword(currentPassword, user.passwordHash)) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  if (!isValidPassword(newPassword)) {
+    throw new Error("Use a password with at least 8 characters.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        passwordHash: hashPassword(newPassword),
+      },
+    });
+
+    await tx.session.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+  });
+
+  return user;
 }

@@ -10,12 +10,12 @@ const copy = {
   en: {
     eyebrow: "Account",
     title: "Choose a new password",
-    body: "Use the local reset link to secure your account again, then sign back in with the new password.",
+    body: "Use your reset link to secure the account again, then sign back in with the new password.",
   },
   fr: {
     eyebrow: "Compte",
     title: "Choisissez un nouveau mot de passe",
-    body: "Utilisez le lien local de reinitialisation pour securiser votre compte, puis reconnectez-vous avec le nouveau mot de passe.",
+    body: "Utilisez le lien de reinitialisation pour securiser le compte, puis reconnectez-vous avec le nouveau mot de passe.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 

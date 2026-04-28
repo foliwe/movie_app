@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, startTransition, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2, Save, Trash2 } from "lucide-react";
-import type { Movie, Review } from "@/lib/movies";
+import type { AccountProfile, Movie, Review } from "@/lib/movies";
 import { LanguageBadges, RatingPill } from "@/components/site";
-import { type Locale } from "@/lib/i18n";
+import { getLanguageLabel, type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
 
 type FormState = "idle" | "loading" | "error" | "success";
@@ -39,7 +39,7 @@ const authCopy = {
     invalidEmail: "Use a valid email address to continue.",
     invalidPassword: "Use a password with at least 8 characters.",
     mismatchPassword: "Use the same password in both fields.",
-    forgotSuccess: "Reset link prepared for local development.",
+    forgotSuccess: "If that account exists, we recorded the reset request.",
     resetSuccess: "Password updated. Sign in with your new password.",
     authSuccess: "Account session is active.",
     authError: "We could not complete that account request.",
@@ -50,7 +50,6 @@ const authCopy = {
     forgotPassword: "Forgot password?",
     resetPassword: "Reset password",
     createAccount: "Create account",
-    openResetLink: "Open reset link",
   },
   fr: {
     loginTitle: "Bon retour",
@@ -68,7 +67,7 @@ const authCopy = {
     invalidEmail: "Utilisez une adresse email valide pour continuer.",
     invalidPassword: "Utilisez un mot de passe d'au moins 8 caracteres.",
     mismatchPassword: "Utilisez le meme mot de passe dans les deux champs.",
-    forgotSuccess: "Lien de reinitialisation prepare pour le developpement local.",
+    forgotSuccess: "Si ce compte existe, nous avons enregistre la demande de reinitialisation.",
     resetSuccess: "Mot de passe mis a jour. Connectez-vous avec le nouveau mot de passe.",
     authSuccess: "La session du compte est active.",
     authError: "Impossible de terminer cette demande de compte.",
@@ -79,7 +78,64 @@ const authCopy = {
     forgotPassword: "Mot de passe oublie ?",
     resetPassword: "Reinitialiser le mot de passe",
     createAccount: "Creer un compte",
-    openResetLink: "Ouvrir le lien de reinitialisation",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const accountProfileCopy = {
+  en: {
+    title: "Profile settings",
+    displayName: "Display name",
+    email: "Email",
+    location: "Location",
+    bio: "Bio",
+    favoriteLanguages: "Favorite languages",
+    displayNamePlaceholder: "Aline N.",
+    locationPlaceholder: "Douala",
+    bioPlaceholder: "Tell readers what kinds of films and conversations keep bringing you back.",
+    profileSaved: "Account profile updated.",
+    profileError: "We could not update your profile.",
+    saveProfile: "Save profile",
+    viewProfile: "View public profile",
+  },
+  fr: {
+    title: "Parametres du profil",
+    displayName: "Nom affiche",
+    email: "Email",
+    location: "Lieu",
+    bio: "Bio",
+    favoriteLanguages: "Langues preferees",
+    displayNamePlaceholder: "Aline N.",
+    locationPlaceholder: "Douala",
+    bioPlaceholder: "Dites aux lecteurs quels films et quelles conversations vous font revenir.",
+    profileSaved: "Profil du compte mis a jour.",
+    profileError: "Impossible de mettre a jour votre profil.",
+    saveProfile: "Enregistrer le profil",
+    viewProfile: "Voir le profil public",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const accountSecurityCopy = {
+  en: {
+    title: "Security settings",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    confirmPassword: "Confirm new password",
+    passwordPlaceholder: "At least 8 characters",
+    confirmPasswordPlaceholder: "Repeat your new password",
+    securitySaved: "Password updated.",
+    securityError: "We could not update your password.",
+    savePassword: "Change password",
+  },
+  fr: {
+    title: "Parametres de securite",
+    currentPassword: "Mot de passe actuel",
+    newPassword: "Nouveau mot de passe",
+    confirmPassword: "Confirmez le nouveau mot de passe",
+    passwordPlaceholder: "Au moins 8 caracteres",
+    confirmPasswordPlaceholder: "Repetez votre nouveau mot de passe",
+    securitySaved: "Mot de passe mis a jour.",
+    securityError: "Impossible de mettre a jour le mot de passe.",
+    savePassword: "Changer le mot de passe",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -186,7 +242,6 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [successHref, setSuccessHref] = useState<string | null>(null);
   const { locale } = useLocale();
   const t = authCopy[locale];
   const nextPath = useMemo(() => {
@@ -203,7 +258,6 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
-    setSuccessHref(null);
     setState("loading");
 
     if (mode === "forgot" && !email.includes("@")) {
@@ -252,7 +306,7 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
           displayName: name,
         }),
       });
-      const payload = (await response.json()) as { message?: string; resetHref?: string };
+      const payload = (await response.json()) as { message?: string };
 
       if (!response.ok) {
         setMessage(payload.message ?? t.authError);
@@ -261,7 +315,6 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
       }
 
       setMessage(payload.message ?? (mode === "forgot" ? t.forgotSuccess : mode === "reset" ? t.resetSuccess : t.authSuccess));
-      setSuccessHref(payload.resetHref ?? null);
       setState("success");
       if (nextPath) {
         window.setTimeout(() => window.location.assign(nextPath), 250);
@@ -325,11 +378,6 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
           {message ?? success}
         </p>
       ) : null}
-      {successHref ? (
-        <div className="form-links">
-          <Link href={successHref}>{t.openResetLink}</Link>
-        </div>
-      ) : null}
       <button className="primary-action" type="submit" disabled={state === "loading"}>
         {state === "loading" ? <Loader2 className="spin" size={18} /> : null}
         {mode === "login"
@@ -346,6 +394,246 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
         {mode === "login" ? <Link href="/forgot-password">{t.forgotPassword}</Link> : null}
         {mode !== "register" && mode !== "reset" ? <Link href={registerHref}>{t.createAccount}</Link> : null}
       </div>
+    </form>
+  );
+}
+
+export function AccountProfileForm({
+  profile,
+  availableLanguages,
+}: {
+  profile: AccountProfile;
+  availableLanguages: string[];
+}) {
+  const router = useRouter();
+  const { locale } = useLocale();
+  const t = accountProfileCopy[locale];
+  const [state, setState] = useState<FormState>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState(profile.displayName);
+  const [location, setLocation] = useState(profile.location);
+  const [bio, setBio] = useState(profile.bio);
+  const [favoriteLanguages, setFavoriteLanguages] = useState(profile.favoriteLanguages);
+
+  useEffect(() => {
+    setDisplayName(profile.displayName);
+    setLocation(profile.location);
+    setBio(profile.bio);
+    setFavoriteLanguages(profile.favoriteLanguages);
+  }, [profile.bio, profile.displayName, profile.favoriteLanguages, profile.location]);
+
+  function toggleLanguage(language: string) {
+    setFavoriteLanguages((current) =>
+      current.includes(language) ? current.filter((entry) => entry !== language) : [...current, language],
+    );
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setState("loading");
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          displayName,
+          location,
+          bio,
+          favoriteLanguages,
+        }),
+      });
+      const payload = (await response.json()) as { message?: string; profile?: AccountProfile };
+
+      if (!response.ok) {
+        setState("error");
+        setMessage(payload.message ?? t.profileError);
+        return;
+      }
+
+      if (payload.profile) {
+        setDisplayName(payload.profile.displayName);
+        setLocation(payload.profile.location);
+        setBio(payload.profile.bio);
+        setFavoriteLanguages(payload.profile.favoriteLanguages);
+      }
+
+      setState("success");
+      setMessage(payload.message ?? t.profileSaved);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setState("error");
+      setMessage(t.profileError);
+    }
+  }
+
+  return (
+    <form className="auth-form" onSubmit={handleSubmit}>
+      <h2>{t.title}</h2>
+      <label>
+        {t.displayName}
+        <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder={t.displayNamePlaceholder} />
+      </label>
+      <label>
+        {t.email}
+        <input value={profile.email ?? ""} readOnly aria-readonly="true" />
+      </label>
+      <label>
+        {t.location}
+        <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t.locationPlaceholder} />
+      </label>
+      <label>
+        {t.bio}
+        <textarea value={bio} onChange={(event) => setBio(event.target.value)} placeholder={t.bioPlaceholder} />
+      </label>
+      <fieldset className="checkbox-field account-language-field">
+        <legend>{t.favoriteLanguages}</legend>
+        <div className="account-language-grid">
+          {availableLanguages.map((language) => {
+            const checked = favoriteLanguages.includes(language);
+
+            return (
+              <label key={language} className="checkbox-row account-language-option">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleLanguage(language)}
+                />
+                <span>{getLanguageLabel(locale, language)}</span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+      {state === "error" && message ? <p className="form-message error">{message}</p> : null}
+      {state === "success" && message ? (
+        <p className="form-message success">
+          <CheckCircle2 size={18} />
+          {message}
+        </p>
+      ) : null}
+      <div className="form-links">
+        <Link href={`/profile/${profile.username}`}>{t.viewProfile}</Link>
+      </div>
+      <button className="primary-action" type="submit" disabled={state === "loading"}>
+        {state === "loading" ? <Loader2 className="spin" size={18} /> : null}
+        {t.saveProfile}
+      </button>
+    </form>
+  );
+}
+
+export function ChangePasswordForm() {
+  const router = useRouter();
+  const { locale } = useLocale();
+  const t = accountSecurityCopy[locale];
+  const authT = authCopy[locale];
+  const [state, setState] = useState<FormState>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setState("loading");
+    setMessage(null);
+
+    if (newPassword.length < 8) {
+      setState("error");
+      setMessage(authT.invalidPassword);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setState("error");
+      setMessage(authT.mismatchPassword);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/account/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+      const payload = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setState("error");
+        setMessage(payload.message ?? t.securityError);
+        return;
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setState("success");
+      setMessage(payload.message ?? t.securitySaved);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setState("error");
+      setMessage(t.securityError);
+    }
+  }
+
+  return (
+    <form className="auth-form" onSubmit={handleSubmit}>
+      <h2>{t.title}</h2>
+      <label>
+        {t.currentPassword}
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(event) => setCurrentPassword(event.target.value)}
+          placeholder={t.passwordPlaceholder}
+          autoComplete="current-password"
+        />
+      </label>
+      <label>
+        {t.newPassword}
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
+          placeholder={t.passwordPlaceholder}
+          autoComplete="new-password"
+        />
+      </label>
+      <label>
+        {t.confirmPassword}
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          placeholder={t.confirmPasswordPlaceholder}
+          autoComplete="new-password"
+        />
+      </label>
+      {state === "error" && message ? <p className="form-message error">{message}</p> : null}
+      {state === "success" && message ? (
+        <p className="form-message success">
+          <CheckCircle2 size={18} />
+          {message}
+        </p>
+      ) : null}
+      <button className="primary-action" type="submit" disabled={state === "loading"}>
+        {state === "loading" ? <Loader2 className="spin" size={18} /> : null}
+        {t.savePassword}
+      </button>
     </form>
   );
 }

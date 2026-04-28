@@ -3,16 +3,21 @@
 ## Summary
 Mboko Reels is now a database-backed Next.js app for discovering Cameroonian films, writing reviews, and managing the catalogue through admin workflows. Public catalogue pages, account registration/login, persistent sessions, review publishing, review editing, review moderation, and admin movie publishing are all implemented against PostgreSQL through Prisma.
 
-This milestone adds a local-development password reset flow so the account experience matches the rest of the real backend. Reset links are generated through the app, stored as hashed single-use tokens, and exposed only as local reset URLs during development.
+This milestone expands the signed-in account area and keeps password resets database-backed without exposing local reset helpers in the user-facing UI. Reset tokens are still generated through the app and stored as hashed single-use records for recovery flows.
 
 ## Current Product Surface
 - Public routes are live for home, movies, movie detail, people, search, reviews, review detail, login, register, forgot password, reset password, profile, and write review.
+- Signed-in account routes are live for profile settings, security settings, and authored reviews.
 - Catalogue reads come from PostgreSQL, including movie languages, genres, cast, crew, gallery media, and seeded review content.
 - Auth is persistent and session-based:
   - registration creates real users
   - login verifies hashed passwords
   - logout clears the active session
   - forgot/reset password uses database-backed reset tokens
+  - signed-in members can change their password from account security settings
+- Signed-in account management includes:
+  - editable display name, location, bio, and favorite-language preferences
+  - a shared account workspace for profile, security, and review management
 - Reviews are persistent:
   - signed-in members can publish one review per movie
   - authors can edit and delete their own reviews
@@ -30,7 +35,7 @@ This milestone adds a local-development password reset flow so the account exper
   - short-lived
   - invalidated after a successful reset
 - A successful password reset revokes all active sessions for that user.
-- In development, `POST /api/auth/forgot-password` may return a local `resetHref` to open the reset page directly. Production should replace that behavior with real email delivery.
+- `POST /api/auth/forgot-password` now returns a generic acknowledgement only. Real delivery or operator-visible outbox support is still needed before production rollout.
 
 ## Public Interfaces
 - Auth routes:
@@ -40,6 +45,8 @@ This milestone adds a local-development password reset flow so the account exper
   - `GET /api/auth/me`
   - `POST /api/auth/forgot-password`
   - `POST /api/auth/reset-password`
+  - `PATCH /api/account/profile`
+  - `POST /api/account/change-password`
 - Review routes:
   - `POST /api/reviews`
   - `PATCH /api/reviews/[id]`
@@ -56,9 +63,10 @@ This milestone adds a local-development password reset flow so the account exper
   - core route rendering
   - search and locale switching
   - registration and login
-  - forgot-password validation and local reset link generation
+  - forgot-password validation and generic request acknowledgement
   - password reset invalid, expired, valid, and reused token behavior
   - session invalidation after password reset
+  - signed-in profile editing and password changes
   - review draft restore, publish, edit, and delete flows
   - admin movie publishing and duplicate-person handling
   - admin review queue access
@@ -66,9 +74,7 @@ This milestone adds a local-development password reset flow so the account exper
   - media and credit rendering on movie detail pages
 
 ## Remaining Gaps
-- Password reset delivery is development-only and still needs a real email provider for production.
-- Account management is still minimal:
-  - no change-password screen while signed in
-  - no editable profile settings UI
+- Password reset delivery still needs a real email provider or operator-facing outbox for production.
+- Account management still does not support changing email addresses or usernames.
 - Review moderation exists, but there is no richer audit trail or moderation notes yet.
 - Deployment support exists in Docker/Nginx config, but production rollout validation and operator docs can still be expanded.

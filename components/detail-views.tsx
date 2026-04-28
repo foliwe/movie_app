@@ -1,9 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowRight, MessageSquare, Play, Star } from "lucide-react";
-import { ReviewOwnerTools, WriteReviewForm } from "@/components/forms";
+import { AccountProfileForm, ChangePasswordForm, ReviewOwnerTools, WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
 import {
   LanguageBadges,
@@ -16,7 +18,7 @@ import {
   ReviewStatusBadge,
   SiteHeader,
 } from "@/components/site";
-import type { Movie, Person, Review, UserProfile } from "@/lib/movies";
+import type { AccountProfile, Movie, Person, Review, UserProfile } from "@/lib/movies";
 import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
 const movieDetailCopy = {
@@ -111,15 +113,18 @@ const profileCopy = {
   },
 } satisfies Record<Locale, Record<string, string>>;
 
-const accountCopy = {
+const accountShellCopy = {
   en: {
     eyebrow: "Account",
-    title: "Your review desk",
-    body: "Track published notes, private statuses, and quick paths back into editing.",
+    title: "Account settings",
+    body: "Manage how your public profile reads, keep your password current, and track every review from one signed-in workspace.",
+    profile: "Profile",
+    security: "Security",
+    reviews: "Reviews",
+    publicProfile: "Public profile",
+    email: "Email",
     reviewStates: "Review states",
-    allReviews: "All authored reviews",
-    queueLink: "Open moderation queue",
-    noReviews: "No authored reviews yet.",
+    favoriteLanguages: "Favorite languages",
     published: "Published",
     pending: "Pending",
     hidden: "Hidden",
@@ -127,16 +132,58 @@ const accountCopy = {
   },
   fr: {
     eyebrow: "Compte",
-    title: "Votre bureau critiques",
-    body: "Suivez vos critiques publiees, privees et les retours rapides vers la modification.",
+    title: "Parametres du compte",
+    body: "Gerez le profil public, gardez le mot de passe a jour et suivez chaque critique depuis un seul espace connecte.",
+    profile: "Profil",
+    security: "Securite",
+    reviews: "Critiques",
+    publicProfile: "Profil public",
+    email: "Email",
     reviewStates: "Etats des critiques",
-    allReviews: "Toutes vos critiques",
-    queueLink: "Ouvrir la file moderation",
-    noReviews: "Aucune critique redigee pour le moment.",
+    favoriteLanguages: "Langues preferees",
     published: "Publiees",
     pending: "En attente",
     hidden: "Masquees",
     draft: "Brouillons",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const accountProfileCopy = {
+  en: {
+    title: "Edit your public profile",
+    body: "Update the display name, location, bio, and language preferences that appear on your profile page.",
+  },
+  fr: {
+    title: "Modifier le profil public",
+    body: "Mettez a jour le nom affiche, le lieu, la bio et les langues preferees visibles sur votre page profil.",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const accountSecurityCopy = {
+  en: {
+    title: "Protect your sign-in",
+    body: "Change your password without using the recovery flow. Your other active sessions will be revoked after a successful change.",
+    emailNote: "Signed-in email",
+  },
+  fr: {
+    title: "Proteger la connexion",
+    body: "Changez votre mot de passe sans utiliser la recuperation. Les autres sessions actives seront revoquees apres une mise a jour reussie.",
+    emailNote: "Email de connexion",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const accountReviewsCopy = {
+  en: {
+    title: "All authored reviews",
+    body: "Open any review to edit its copy, check moderation state, or jump back to the public page.",
+    queueLink: "Open moderation queue",
+    noReviews: "No authored reviews yet.",
+  },
+  fr: {
+    title: "Toutes vos critiques",
+    body: "Ouvrez une critique pour modifier le texte, verifier son statut de moderation ou revenir a la page publique.",
+    queueLink: "Ouvrir la file moderation",
+    noReviews: "Aucune critique redigee pour le moment.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -522,30 +569,50 @@ export function WriteReviewView({ movie }: { movie: Movie }) {
   );
 }
 
-export function AccountReviewsView({
+function AccountTabNav() {
+  const pathname = usePathname();
+  const { locale } = useLocale();
+  const t = accountShellCopy[locale];
+  const tabs = [
+    { href: "/account/profile", label: t.profile },
+    { href: "/account/security", label: t.security },
+    { href: "/account/reviews", label: t.reviews },
+  ];
+
+  return (
+    <nav className="account-tabs" aria-label={t.eyebrow}>
+      {tabs.map((tab) => (
+        <Link key={tab.href} href={tab.href} className={pathname === tab.href ? "is-active" : undefined}>
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+export function AccountShell({
   profile,
-  reviews,
-  isAdmin,
+  counts,
+  children,
 }: {
-  profile: UserProfile;
-  reviews: Review[];
-  isAdmin: boolean;
+  profile: AccountProfile;
+  counts: {
+    published: number;
+    pending: number;
+    hidden: number;
+    draft: number;
+  };
+  children: ReactNode;
 }) {
   const { locale } = useLocale();
-  const t = accountCopy[locale];
-  const counts = {
-    published: reviews.filter((review) => review.status === "Published").length,
-    pending: reviews.filter((review) => review.status === "Pending").length,
-    hidden: reviews.filter((review) => review.status === "Hidden").length,
-    draft: reviews.filter((review) => review.status === "Draft").length,
-  };
+  const t = accountShellCopy[locale];
 
   return (
     <main>
       <SiteHeader />
       <PageHero eyebrow={t.eyebrow} title={t.title} body={t.body} />
-      <section className="split-band detail-grid">
-        <aside className="selected-film-panel profile-card">
+      <section className="split-band detail-grid account-shell-grid">
+        <aside className="selected-film-panel profile-card account-sidebar">
           <div className="profile-stats">
             <div>
               <strong>{counts.published}</strong>
@@ -562,53 +629,130 @@ export function AccountReviewsView({
           </div>
           <dl>
             <div>
+              <dt>{t.publicProfile}</dt>
+              <dd>
+                <Link href={`/profile/${profile.username}`}>{profile.displayName}</Link>
+              </dd>
+            </div>
+            <div>
+              <dt>{t.email}</dt>
+              <dd>{profile.email ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>{t.favoriteLanguages}</dt>
+              <dd>{formatLanguageList(locale, profile.favoriteLanguages)}</dd>
+            </div>
+            <div>
               <dt>{t.reviewStates}</dt>
               <dd>
                 {t.draft}: {counts.draft}
               </dd>
             </div>
-            <div>
-              <dt>{profile.displayName}</dt>
-              <dd>{formatLanguageList(locale, profile.favoriteLanguages)}</dd>
-            </div>
           </dl>
-          {isAdmin ? <Link className="detail-action" href="/admin/reviews">{t.queueLink}</Link> : null}
         </aside>
-        <div className="panel reviews-list-panel">
-          <div className="panel-heading">
-            <h2>{t.allReviews}</h2>
-            <Link href={`/profile/${profile.username}`}>{profile.displayName}</Link>
-          </div>
-          <div className="stacked-list">
-            {reviews.length > 0 ? (
-              reviews.map((review) => (
-                <article key={review.id} className="review-card expanded-review">
-                  <div className="review-thumb poster-teal">
-                    <strong>{review.movieTitle.split(" ")[0]}</strong>
-                  </div>
-                  <div>
-                    <ReviewStatusBadge status={review.status ?? "Published"} />
-                    <Link href={`/reviews/${review.id}`}>
-                      <h3>{review.title}</h3>
-                    </Link>
-                    <p>
-                      <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
-                    </p>
-                    <span>{review.excerpt}</span>
-                  </div>
-                  <footer>
-                    <strong>{review.author}</strong>
-                    <span>{review.movieTitle}</span>
-                  </footer>
-                </article>
-              ))
-            ) : (
-              <p className="empty-state">{t.noReviews}</p>
-            )}
-          </div>
+        <div className="panel reviews-list-panel account-main-panel">
+          <AccountTabNav />
+          {children}
         </div>
       </section>
     </main>
+  );
+}
+
+export function AccountProfileSection({
+  profile,
+  availableLanguages,
+}: {
+  profile: AccountProfile;
+  availableLanguages: string[];
+}) {
+  const { locale } = useLocale();
+  const t = accountProfileCopy[locale];
+
+  return (
+    <>
+      <div className="panel-heading account-panel-heading">
+        <div>
+          <h2>{t.title}</h2>
+          <p>{t.body}</p>
+        </div>
+        <Link href={`/profile/${profile.username}`}>{accountShellCopy[locale].publicProfile}</Link>
+      </div>
+      <AccountProfileForm profile={profile} availableLanguages={availableLanguages} />
+    </>
+  );
+}
+
+export function AccountSecuritySection({ email }: { email: string | null }) {
+  const { locale } = useLocale();
+  const t = accountSecurityCopy[locale];
+
+  return (
+    <>
+      <div className="panel-heading account-panel-heading">
+        <div>
+          <h2>{t.title}</h2>
+          <p>{t.body}</p>
+        </div>
+      </div>
+      <div className="account-readonly-card">
+        <strong>{t.emailNote}</strong>
+        <span>{email ?? "-"}</span>
+      </div>
+      <ChangePasswordForm />
+    </>
+  );
+}
+
+export function AccountReviewsView({
+  profile,
+  reviews,
+  isAdmin,
+}: {
+  profile: UserProfile;
+  reviews: Review[];
+  isAdmin: boolean;
+}) {
+  const { locale } = useLocale();
+  const t = accountReviewsCopy[locale];
+
+  return (
+    <>
+      <div className="panel-heading account-panel-heading">
+        <div>
+          <h2>{t.title}</h2>
+          <p>{t.body}</p>
+        </div>
+        {isAdmin ? <Link href="/admin/reviews">{t.queueLink}</Link> : <Link href={`/profile/${profile.username}`}>{profile.displayName}</Link>}
+      </div>
+      <div className="stacked-list">
+        {reviews.length > 0 ? (
+          reviews.map((review) => (
+            <article key={review.id} className="review-card expanded-review">
+              <div className="review-thumb poster-teal">
+                <strong>{review.movieTitle.split(" ")[0]}</strong>
+              </div>
+              <div>
+                <ReviewStatusBadge status={review.status ?? "Published"} />
+                <Link href={`/reviews/${review.id}`}>
+                  <h3>{review.title}</h3>
+                </Link>
+                <p>
+                  <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
+                </p>
+                <span>{review.excerpt}</span>
+              </div>
+              <footer>
+                <strong>{review.author}</strong>
+                <span>{review.movieTitle}</span>
+              </footer>
+            </article>
+          ))
+        ) : (
+          <p className="empty-state">{t.noReviews}</p>
+        )}
+      </div>
+    </>
   );
 }
 

@@ -87,6 +87,11 @@ export type UserProfile = {
   averageRating: number;
 };
 
+export type AccountProfile = UserProfile & {
+  email: string | null;
+  role: "Member" | "Admin";
+};
+
 export const movies: Movie[] = [
   {
     id: "mambar-pierrette",

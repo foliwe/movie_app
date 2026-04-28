@@ -9,12 +9,12 @@ const copy = {
   en: {
     eyebrow: "Account",
     title: "Recover access",
-    body: "Request a real local reset link that lets you set a fresh password for your account.",
+    body: "Request a password reset for your account if you can no longer sign in.",
   },
   fr: {
     eyebrow: "Compte",
     title: "Recuperer l'acces",
-    body: "Demandez un vrai lien local de reinitialisation pour definir un nouveau mot de passe.",
+    body: "Demandez une reinitialisation du mot de passe si vous ne pouvez plus vous connecter.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
