@@ -1,12 +1,20 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Languages, Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
-import { getMovieBySlug, type Movie, type Person, type Review } from "@/lib/movies";
-import { formatLanguageList, getGenreLabel, getLanguageLabel, getStatusLabel, type Locale } from "@/lib/i18n";
+import type { Movie, Person, Review } from "@/lib/movies";
+import {
+  formatLanguageList,
+  getGenreLabel,
+  getLanguageLabel,
+  getReviewStatusLabel,
+  getStatusLabel,
+  type Locale,
+} from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
 
 export const uiCopy = {
@@ -16,7 +24,10 @@ export const uiCopy = {
     people: "People",
     search: "Search",
     profiles: "Profiles",
+    account: "My reviews",
     signIn: "Sign in",
+    signOut: "Sign out",
+    admin: "Admin",
     viewAll: "View all",
     noResults: "No matching films yet",
     languageToggle: "Language toggle",
@@ -27,7 +38,10 @@ export const uiCopy = {
     people: "Artistes",
     search: "Recherche",
     profiles: "Profils",
+    account: "Mes critiques",
     signIn: "Connexion",
+    signOut: "Deconnexion",
+    admin: "Admin",
     viewAll: "Tout voir",
     noResults: "Aucun film correspondant",
     languageToggle: "Changement de langue",
@@ -35,7 +49,9 @@ export const uiCopy = {
 } satisfies Record<Locale, Record<string, string>>;
 
 export function SiteHeader() {
+  const router = useRouter();
   const { locale, setLocale } = useLocale();
+  const [authUser, setAuthUser] = useState<{ username: string; displayName: string; role: "Member" | "Admin" } | null>(null);
   const t = uiCopy[locale];
   const navItems = [
     { label: t.films, href: "/movies" },
@@ -43,7 +59,40 @@ export function SiteHeader() {
     { label: t.search, href: "/search" },
     { label: t.people, href: "/people/rosine-mbakam" },
     { label: t.profiles, href: "/profile/aline-n" },
+    ...(authUser ? [{ label: t.account, href: "/account/reviews" }] : []),
+    ...(authUser?.role === "Admin" ? [{ label: t.admin, href: "/admin/movies" }] : []),
   ];
+  const authInitials = authUser?.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetch("/api/auth/me")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { user?: { username: string; displayName: string; role: "Member" | "Admin" } | null } | null) => {
+        if (isMounted && payload?.user) {
+          setAuthUser(payload.user);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+    setAuthUser(null);
+    router.refresh();
+  }
 
   return (
     <header className="site-header">
@@ -75,9 +124,18 @@ export function SiteHeader() {
           ))}
         </div>
         <span className="header-divider" aria-hidden="true" />
-        <Link className="avatar-button" aria-label={t.signIn} href="/login">
-          <UserCircle size={31} strokeWidth={1.25} />
+        <Link
+          className="avatar-button"
+          aria-label={authUser ? authUser.displayName : t.signIn}
+          href={authUser ? `/profile/${authUser.username}` : "/login"}
+        >
+          {authInitials ? <span>{authInitials}</span> : <UserCircle size={31} strokeWidth={1.25} />}
         </Link>
+        {authUser ? (
+          <button className="header-logout-button" type="button" onClick={handleLogout}>
+            {t.signOut}
+          </button>
+        ) : null}
       </div>
     </header>
   );
@@ -220,7 +278,7 @@ export function FreshReviewListItem({ review }: { review: Review }) {
 
 export function ReviewCard({ review }: { review: Review }) {
   const { locale } = useLocale();
-  const movie = getMovieBySlug(review.movieSlug);
+  const movieLanguages = review.movieLanguages ?? [];
 
   return (
     <article className="review-card expanded-review">
@@ -228,9 +286,9 @@ export function ReviewCard({ review }: { review: Review }) {
         <strong>{review.movieTitle.split(" ")[0]}</strong>
       </div>
       <div>
-        {movie ? (
+        {movieLanguages.length > 0 ? (
           <small className="review-card-context">
-            {review.movieTitle} / {formatLanguageList(locale, movie.languages.slice(0, 2))}
+            {review.movieTitle} / {formatLanguageList(locale, movieLanguages.slice(0, 2))}
           </small>
         ) : null}
         <Link href={`/reviews/${review.slug}`}>
@@ -248,6 +306,16 @@ export function ReviewCard({ review }: { review: Review }) {
         <span>{review.location}</span>
       </footer>
     </article>
+  );
+}
+
+export function ReviewStatusBadge({ status }: { status: NonNullable<Review["status"]> }) {
+  const { locale } = useLocale();
+
+  return (
+    <span className={clsx("review-status-badge", `is-${status.toLowerCase()}`)}>
+      {getReviewStatusLabel(locale, status)}
+    </span>
   );
 }
 

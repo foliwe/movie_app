@@ -9,12 +9,12 @@ const copy = {
   en: {
     eyebrow: "Account",
     title: "Sign in",
-    body: "Mock authentication UI for Phase 1 with loading, validation, and success states.",
+    body: "Sign in with a persistent account session before publishing community reviews.",
   },
   fr: {
     eyebrow: "Compte",
     title: "Connexion",
-    body: "Interface mock d'authentification Phase 1 avec chargement, validation et succes.",
+    body: "Connectez-vous avec une session persistante avant de publier des critiques.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 

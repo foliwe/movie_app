@@ -3,10 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, MessageSquare, Play, Star } from "lucide-react";
-import { WriteReviewForm } from "@/components/forms";
+import { ReviewOwnerTools, WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
-import { LanguageBadges, MovieMeta, MovieRow, PageHero, PersonAvatar, PosterBlock, ReviewCard, SiteHeader } from "@/components/site";
-import { getPersonBySlug, type Movie, type Person, type Review, type UserProfile } from "@/lib/movies";
+import {
+  LanguageBadges,
+  MovieMeta,
+  MovieRow,
+  PageHero,
+  PersonAvatar,
+  PosterBlock,
+  ReviewCard,
+  ReviewStatusBadge,
+  SiteHeader,
+} from "@/components/site";
+import type { Movie, Person, Review, UserProfile } from "@/lib/movies";
 import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
 const movieDetailCopy = {
@@ -101,14 +111,62 @@ const profileCopy = {
   },
 } satisfies Record<Locale, Record<string, string>>;
 
+const accountCopy = {
+  en: {
+    eyebrow: "Account",
+    title: "Your review desk",
+    body: "Track published notes, private statuses, and quick paths back into editing.",
+    reviewStates: "Review states",
+    allReviews: "All authored reviews",
+    queueLink: "Open moderation queue",
+    noReviews: "No authored reviews yet.",
+    published: "Published",
+    pending: "Pending",
+    hidden: "Hidden",
+    draft: "Draft",
+  },
+  fr: {
+    eyebrow: "Compte",
+    title: "Votre bureau critiques",
+    body: "Suivez vos critiques publiees, privees et les retours rapides vers la modification.",
+    reviewStates: "Etats des critiques",
+    allReviews: "Toutes vos critiques",
+    queueLink: "Ouvrir la file moderation",
+    noReviews: "Aucune critique redigee pour le moment.",
+    published: "Publiees",
+    pending: "En attente",
+    hidden: "Masquees",
+    draft: "Brouillons",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const adminReviewCopy = {
+  en: {
+    eyebrow: "Admin reviews",
+    title: "Moderate the public conversation",
+    body: "Review every status from one queue before notes surface across the public feed.",
+    queue: "Moderation queue",
+    queueBody: "Open any review to edit copy, hide it, or publish it back into the feed.",
+    noReviews: "No reviews are available yet.",
+  },
+  fr: {
+    eyebrow: "Admin critiques",
+    title: "Moderer la conversation publique",
+    body: "Passez en revue tous les statuts depuis une seule file avant publication dans le flux public.",
+    queue: "File moderation",
+    queueBody: "Ouvrez une critique pour modifier le texte, la masquer ou la republier.",
+    noReviews: "Aucune critique disponible pour le moment.",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
 const writeReviewCopy = {
   en: {
     eyebrow: "Write review",
-    body: "Rate on the planned 1-10 scale and preview the Phase 1 submission states.",
+    body: "Rate on the 1-10 scale, keep a local draft, and publish to the community feed when signed in.",
   },
   fr: {
     eyebrow: "Ecrire une critique",
-    body: "Notez sur l'echelle 1-10 prevue et voyez les etats de soumission Phase 1.",
+    body: "Notez sur l'echelle 1-10, gardez un brouillon local et publiez une fois connecte.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -210,6 +268,8 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
                 personSlug={credit.personSlug}
                 primaryText={credit.name}
                 secondaryText={credit.character}
+                photoUrl={credit.photoUrl}
+                palette={credit.palette}
               />
             ))}
           </div>
@@ -227,6 +287,8 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
                 personSlug={credit.personSlug}
                 primaryText={credit.name}
                 secondaryText={credit.job}
+                photoUrl={credit.photoUrl}
+                palette={credit.palette}
               />
             ))}
           </div>
@@ -254,14 +316,16 @@ function PersonCreditLink({
   personSlug,
   primaryText,
   secondaryText,
+  photoUrl,
+  palette,
 }: {
   personSlug: string;
   primaryText: string;
   secondaryText: string;
+  photoUrl?: string;
+  palette?: Movie["palette"];
 }) {
-  const person = getPersonBySlug(personSlug);
-
-  if (!person) {
+  if (!photoUrl && !palette) {
     return (
       <div className="credit-entry">
         <PersonAvatar name={primaryText} />
@@ -275,7 +339,7 @@ function PersonCreditLink({
 
   return (
     <Link href={`/people/${personSlug}`}>
-      <PersonAvatar person={person} name={primaryText} />
+      <PersonAvatar person={{ name: primaryText, photoUrl, palette: palette ?? "teal" }} name={primaryText} />
       <div className="credit-copy">
         <strong>{primaryText}</strong>
         <span>{secondaryText}</span>
@@ -333,9 +397,18 @@ export function PersonDetailView({ person, credits }: { person: Person; credits:
   );
 }
 
-export function ReviewDetailView({ review, movie }: { review: Review; movie?: Movie }) {
+export function ReviewDetailView({
+  review,
+  movie,
+  currentUser,
+}: {
+  review: Review;
+  movie?: Movie;
+  currentUser?: { username: string; role: "Member" | "Admin" } | null;
+}) {
   const { locale } = useLocale();
   const t = reviewDetailCopy[locale];
+  const canManageReview = currentUser?.role === "Admin" || currentUser?.username === review.username;
 
   return (
     <main>
@@ -352,6 +425,9 @@ export function ReviewDetailView({ review, movie }: { review: Review; movie?: Mo
             <small>{formatPublishedDate(locale, review.publishedAt)}</small>
           </div>
           <p>{review.body}</p>
+          {canManageReview ? (
+            <ReviewOwnerTools review={review} canModerate={currentUser?.role === "Admin"} />
+          ) : null}
           <div className="hero-actions">
             <Link className="primary-action" href={`/movies/${review.movieSlug}`}>
               {t.openFilm}
@@ -441,6 +517,143 @@ export function WriteReviewView({ movie }: { movie: Movie }) {
           <p>{movie.synopsis}</p>
           <LanguageBadges languages={movie.languages} />
         </aside>
+      </section>
+    </main>
+  );
+}
+
+export function AccountReviewsView({
+  profile,
+  reviews,
+  isAdmin,
+}: {
+  profile: UserProfile;
+  reviews: Review[];
+  isAdmin: boolean;
+}) {
+  const { locale } = useLocale();
+  const t = accountCopy[locale];
+  const counts = {
+    published: reviews.filter((review) => review.status === "Published").length,
+    pending: reviews.filter((review) => review.status === "Pending").length,
+    hidden: reviews.filter((review) => review.status === "Hidden").length,
+    draft: reviews.filter((review) => review.status === "Draft").length,
+  };
+
+  return (
+    <main>
+      <SiteHeader />
+      <PageHero eyebrow={t.eyebrow} title={t.title} body={t.body} />
+      <section className="split-band detail-grid">
+        <aside className="selected-film-panel profile-card">
+          <div className="profile-stats">
+            <div>
+              <strong>{counts.published}</strong>
+              <span>{t.published}</span>
+            </div>
+            <div>
+              <strong>{counts.pending}</strong>
+              <span>{t.pending}</span>
+            </div>
+            <div>
+              <strong>{counts.hidden}</strong>
+              <span>{t.hidden}</span>
+            </div>
+          </div>
+          <dl>
+            <div>
+              <dt>{t.reviewStates}</dt>
+              <dd>
+                {t.draft}: {counts.draft}
+              </dd>
+            </div>
+            <div>
+              <dt>{profile.displayName}</dt>
+              <dd>{formatLanguageList(locale, profile.favoriteLanguages)}</dd>
+            </div>
+          </dl>
+          {isAdmin ? <Link className="detail-action" href="/admin/reviews">{t.queueLink}</Link> : null}
+        </aside>
+        <div className="panel reviews-list-panel">
+          <div className="panel-heading">
+            <h2>{t.allReviews}</h2>
+            <Link href={`/profile/${profile.username}`}>{profile.displayName}</Link>
+          </div>
+          <div className="stacked-list">
+            {reviews.length > 0 ? (
+              reviews.map((review) => (
+                <article key={review.id} className="review-card expanded-review">
+                  <div className="review-thumb poster-teal">
+                    <strong>{review.movieTitle.split(" ")[0]}</strong>
+                  </div>
+                  <div>
+                    <ReviewStatusBadge status={review.status ?? "Published"} />
+                    <Link href={`/reviews/${review.id}`}>
+                      <h3>{review.title}</h3>
+                    </Link>
+                    <p>
+                      <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
+                    </p>
+                    <span>{review.excerpt}</span>
+                  </div>
+                  <footer>
+                    <strong>{review.author}</strong>
+                    <span>{review.movieTitle}</span>
+                  </footer>
+                </article>
+              ))
+            ) : (
+              <p className="empty-state">{t.noReviews}</p>
+            )}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export function AdminReviewsView({ reviews }: { reviews: Review[] }) {
+  const { locale } = useLocale();
+  const t = adminReviewCopy[locale];
+
+  return (
+    <main>
+      <SiteHeader />
+      <PageHero eyebrow={t.eyebrow} title={t.title} body={t.body} />
+      <section className="discover-band page-section">
+        <div className="panel reviews-list-panel">
+          <div className="panel-heading">
+            <h2>{t.queue}</h2>
+            <p>{t.queueBody}</p>
+          </div>
+          <div className="stacked-list">
+            {reviews.length > 0 ? (
+              reviews.map((review) => (
+                <article key={review.id} className="review-card expanded-review">
+                  <div className="review-thumb poster-teal">
+                    <strong>{review.movieTitle.split(" ")[0]}</strong>
+                  </div>
+                  <div>
+                    <ReviewStatusBadge status={review.status ?? "Published"} />
+                    <Link href={`/reviews/${review.id}`}>
+                      <h3>{review.title}</h3>
+                    </Link>
+                    <p>
+                      <Star size={13} fill="currentColor" /> {review.rating.toFixed(1)}/10
+                    </p>
+                    <span>{review.excerpt}</span>
+                  </div>
+                  <footer>
+                    <strong>{review.author}</strong>
+                    <span>{review.movieTitle}</span>
+                  </footer>
+                </article>
+              ))
+            ) : (
+              <p className="empty-state">{t.noReviews}</p>
+            )}
+          </div>
+        </div>
       </section>
     </main>
   );

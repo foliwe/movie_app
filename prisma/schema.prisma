@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Palette {
+  amber
+  teal
+  rose
+  ivory
+  green
+}
+
+enum WorkflowStatus {
+  Draft
+  Published
+}
+
+enum MovieStatus {
+  Published
+  Festival
+  Classic
+}
+
+enum UserRole {
+  Member
+  Admin
+}
+
+enum ReviewStatus {
+  Draft
+  Pending
+  Published
+  Hidden
+}
+
+model Movie {
+  id                   String         @id
+  slug                 String         @unique
+  sortOrder            Int            @unique
+  title                String
+  originalTitle        String?
+  releaseYear          Int
+  releaseDate          DateTime?
+  country              String
+  runtimeMinutes       Int
+  director             String
+  synopsis             String
+  averageRating        Float
+  communityReviewCount Int
+  trend                String
+  palette              Palette
+  workflowStatus       WorkflowStatus
+  status               MovieStatus
+  posterUrl            String
+  backdropUrl          String
+  trailerUrl           String
+  trailerEmbedUrl      String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  castCredits          MovieCast[]
+  crewCredits          MovieCrew[]
+  galleryImages        GalleryImage[]
+  genres               MovieGenre[]
+  languages            MovieLanguage[]
+  reviews              Review[]
+
+  @@index([workflowStatus, sortOrder])
+}
+
+model Language {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  sortOrder Int             @unique
+  movies    MovieLanguage[]
+}
+
+model MovieLanguage {
+  movieId    String
+  languageId String
+  sortOrder  Int
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  movie      Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@id([movieId, languageId])
+  @@unique([movieId, sortOrder])
+}
+
+model Genre {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  sortOrder Int         @unique
+  movies    MovieGenre[]
+}
+
+model MovieGenre {
+  movieId    String
+  genreId    String
+  sortOrder  Int
+  genre      Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  movie      Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@id([movieId, genreId])
+  @@unique([movieId, sortOrder])
+}
+
+model GalleryImage {
+  id        String @id @default(cuid())
+  movieId    String
+  src        String
+  alt        String
+  sortOrder  Int
+  movie      Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, sortOrder])
+}
+
+model Person {
+  id            String      @id
+  slug          String      @unique
+  name          String
+  role          String
+  location      String
+  bio           String
+  knownForTitles String[]
+  palette       Palette
+  photoUrl      String?
+  castCredits   MovieCast[]
+  crewCredits   MovieCrew[]
+}
+
+model MovieCast {
+  id         String @id @default(cuid())
+  movieId     String
+  personId    String
+  character   String
+  creditedAs  String?
+  sortOrder   Int
+  movie       Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  person      Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, sortOrder])
+}
+
+model MovieCrew {
+  id         String @id @default(cuid())
+  movieId     String
+  personId    String
+  job         String
+  creditedAs  String?
+  sortOrder   Int
+  movie       Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  person      Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, sortOrder])
+}
+
+model User {
+  id                String   @id @default(cuid())
+  username          String   @unique
+  displayName       String
+  email             String?  @unique
+  role              UserRole @default(Member)
+  location          String
+  bio               String
+  favoriteLanguages String[]
+  watchedCount      Int
+  reviewCount       Int
+  averageRating     Float
+  passwordHash      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  reviewsAuthored   Review[]
+  sessions          Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Review {
+  id          String   @id
+  slug        String   @unique
+  authorId    String
+  movieId     String
+  status      ReviewStatus @default(Published)
+  location    String
+  rating      Int
+  title       String
+  excerpt     String
+  body        String
+  publishedAt DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  movie       Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@index([movieId])
+  @@index([authorId])
+  @@unique([authorId, movieId])
+  @@index([status, publishedAt])
+  @@index([publishedAt])
+}

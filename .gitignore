@@ -12,6 +12,7 @@ dist/
 # local env files
 .env
 .env*.local
+generated/
 
 # logs and test output
 npm-debug.log*

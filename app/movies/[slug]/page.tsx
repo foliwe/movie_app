@@ -1,20 +1,18 @@
 import { notFound } from "next/navigation";
 import { MovieDetailView } from "@/components/detail-views";
-import { getMovieBySlug, movies, reviews } from "@/lib/movies";
+import { getCatalogueMovieBySlug, getReviewsForMovie } from "@/lib/catalog-data";
 
-export function generateStaticParams() {
-  return movies.map((movie) => ({ slug: movie.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function MovieDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const movie = getMovieBySlug(slug);
+  const movie = await getCatalogueMovieBySlug(slug);
 
   if (!movie) {
     notFound();
   }
 
-  const movieReviews = reviews.filter((review) => review.movieSlug === movie.slug);
+  const movieReviews = await getReviewsForMovie(movie.slug);
 
   return <MovieDetailView movie={movie} movieReviews={movieReviews} />;
 }

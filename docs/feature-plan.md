@@ -42,6 +42,11 @@ The current frontend plan now also includes a targeted detail-page/media refacto
 
 ## Backend and Movie Entry Plan
 - Use PostgreSQL in phase 2 with normalized tables instead of storing multi-language movie data in a single text column.
+- Development status:
+  - PostgreSQL is now wired into the local development stack through Prisma.
+  - Seed data is loaded from the original mock catalogue so development starts with the same movies, people, reviews, and profiles.
+  - Public catalogue reads now come from the database for home, movies, movie detail, people, reviews, search, profile, and write-review route lookup.
+  - Auth forms and the admin movie desk remain UI-first mocks until persistence and protected actions are wired in the next backend pass.
 - Model movie creation as an admin-only workflow in v1:
   - Admin creates or edits movies from a protected dashboard.
   - Regular users can review movies, but cannot add catalog entries directly.
@@ -67,6 +72,26 @@ The current frontend plan now also includes a targeted detail-page/media refacto
   - Poster/backdrop/trailer links
   - Searchable edit flow for existing records
 
+## Deployment and Infrastructure Plan
+- Containerize the current application stack with Docker Compose in two layers:
+  - Base `compose.yaml` runs the existing Next.js app as `web` plus a PostgreSQL container as `postgres`.
+  - Production `compose.prod.yaml` adds `nginx` for reverse proxying and `certbot` for Let's Encrypt certificate lifecycle tasks.
+- Build the Next.js app with a multi-stage Docker image and standalone output so the runtime image only ships the production server bundle and static assets.
+- Use Docker-managed persistence for PostgreSQL with a named volume; database provisioning is available immediately even while the current UI still uses mocked data.
+- Terminate production traffic at Nginx:
+  - Port `80` serves ACME challenges and redirects to HTTPS after certificates exist.
+  - Port `443` proxies to the internal Next.js service on port `3000`.
+- Share environment configuration through a root `.env` file pattern, with `.env.example` documenting:
+  - `NODE_ENV`, `PORT`, `WEB_PORT`
+  - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `DATABASE_URL`, `DATABASE_URL_DOCKER`
+  - `DOMAIN`, `LETSENCRYPT_EMAIL`
+- Keep production certificate management explicit in the operator workflow:
+  - Start the stack with `docker compose -f compose.yaml -f compose.prod.yaml up -d`.
+  - Issue the first certificate with a one-off Certbot command against the shared webroot, for example:
+    `docker compose -f compose.yaml -f compose.prod.yaml run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot -d $DOMAIN --email $LETSENCRYPT_EMAIL --agree-tos --no-eff-email`
+  - Restart Nginx after initial issuance so it switches from HTTP-only bootstrap mode to the TLS config.
+  - Reload or restart Nginx after future renewals so updated certificate files are served immediately.
+
 ## Public Interfaces
 - Planned routes:
   - `/`
@@ -89,6 +114,11 @@ The current frontend plan now also includes a targeted detail-page/media refacto
   - Person mock data may include `photoUrl` for credit-link portraits.
 - Rating contract:
   - User ratings and aggregates are based on a 1-10 scale.
+- Deployment contract:
+  - Base Compose services are `web` and `postgres`.
+  - Production Compose adds `nginx` and `certbot`.
+  - Local containerized access uses host port `3000` for the web app.
+  - Production public traffic enters through Nginx on ports `80` and `443`, with the Next.js container reachable only on the internal Compose network.
 
 ## Test Plan
 - Verify all frontend routes render with mocked data and no backend dependency in phase 1.
@@ -101,6 +131,11 @@ The current frontend plan now also includes a targeted detail-page/media refacto
 - Verify responsive behavior across mobile, tablet, and desktop.
 - In phase 2, verify admin movie creation correctly persists movies and related language rows in PostgreSQL.
 - In phase 2, verify a movie can be saved with multiple languages and later filtered correctly.
+- Verify `docker build` succeeds for the Next.js production image.
+- Verify `docker compose up` starts both `web` and `postgres`, with PostgreSQL reporting healthy.
+- Verify `docker compose -f compose.yaml -f compose.prod.yaml config` resolves cleanly for the production overlay.
+- Verify the HTTP-only Nginx bootstrap config serves `/.well-known/acme-challenge/` and proxies the app before certificates exist.
+- Verify the TLS Nginx config validates and proxies traffic correctly after Let's Encrypt certificates are issued.
 
 ## Assumptions
 - Phase 1 remains frontend-only; no live database or real auth integration is implemented yet.
@@ -109,3 +144,5 @@ The current frontend plan now also includes a targeted detail-page/media refacto
 - Reviews are public-facing, but stored only as mock data until phase 2.
 - Detail-page media remains inline on the page in this iteration; no modal gallery or lightbox is required.
 - Seeded local assets are preferred over remote image dependencies for the current mock implementation.
+- Dockerized PostgreSQL is provisioned ahead of the real backend integration, but the current frontend does not query it yet.
+- Production deployment uses Nginx plus Let's Encrypt rather than exposing the Next.js server directly to the internet.
