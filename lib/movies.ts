@@ -280,9 +280,9 @@ export const reviews: Review[] = [
   {
     id: "r1",
     slug: "ordinary-resilience",
-    author: "Aline N.",
-    username: "aline-n",
-    location: "Douala",
+    author: "Cedric T.",
+    username: "cedric-t",
+    location: "Yaounde",
     movieSlug: "mambar-pierrette",
     movieTitle: "Mambar Pierrette",
     rating: 9,
@@ -536,16 +536,6 @@ export const people: Person[] = [
 ];
 
 export const userProfiles: UserProfile[] = [
-  {
-    username: "aline-n",
-    displayName: "Aline N.",
-    location: "Douala",
-    bio: "Festival-line regular, generous scorer, impatient with lazy endings.",
-    favoriteLanguages: ["French", "Pidgin", "Duala"],
-    watched: 146,
-    reviews: 42,
-    averageRating: 7.8,
-  },
   {
     username: "cedric-t",
     displayName: "Cedric T.",

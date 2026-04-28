@@ -74,7 +74,7 @@ This milestone expands the signed-in account area and keeps password resets data
   - media and credit rendering on movie detail pages
 
 ## Remaining Gaps
-- Password reset delivery still needs a real email provider or operator-facing outbox for production.
+- Password reset delivery supports local SMTP testing through Mailpit, but production still needs a real email provider or operator-facing outbox.
 - Account management still does not support changing email addresses or usernames.
 - Review moderation exists, but there is no richer audit trail or moderation notes yet.
 - Deployment support exists in Docker/Nginx config, but production rollout validation and operator docs can still be expanded.
