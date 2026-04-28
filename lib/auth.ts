@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
-import type { NextResponse } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export const sessionCookieName = "mboko_session";
@@ -100,21 +100,33 @@ export async function createSession(userId: string, userAgent?: string | null) {
   return { token, expiresAt };
 }
 
-export function setSessionCookie(response: NextResponse, token: string, expiresAt: Date) {
+export function shouldUseSecureCookies(request: Pick<NextRequest, "headers" | "nextUrl">) {
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const forwardedSsl = request.headers.get("x-forwarded-ssl")?.trim().toLowerCase();
+
+  return request.nextUrl.protocol === "https:" || forwardedProto === "https" || forwardedSsl === "on";
+}
+
+export function setSessionCookie(
+  response: NextResponse,
+  request: Pick<NextRequest, "headers" | "nextUrl">,
+  token: string,
+  expiresAt: Date,
+) {
   response.cookies.set(sessionCookieName, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(request),
     path: "/",
     expires: expiresAt,
   });
 }
 
-export function clearSessionCookie(response: NextResponse) {
+export function clearSessionCookie(response: NextResponse, request: Pick<NextRequest, "headers" | "nextUrl">) {
   response.cookies.set(sessionCookieName, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(request),
     path: "/",
     maxAge: 0,
   });

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       role: user.role,
     },
   });
-  setSessionCookie(response, session.token, session.expiresAt);
+  setSessionCookie(response, request, session.token, session.expiresAt);
 
   return response;
 }

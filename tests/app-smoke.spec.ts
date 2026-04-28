@@ -162,6 +162,83 @@ test.describe("movie app smoke suite", () => {
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]')).toBeVisible();
   });
 
+  test("admin saves duplicate custom people in one movie payload without conflicts", async ({ page }) => {
+    await signInAdmin(page);
+
+    const createResponse = await page.request.post("/api/admin/movies");
+    expect(createResponse.status()).toBe(201);
+    const movie = (await createResponse.json()) as {
+      id: string;
+      slug: string;
+      title: string;
+      originalTitle?: string;
+      releaseYear: number;
+      releaseDate?: string;
+      country: string;
+      runtimeMinutes: number;
+      director: string;
+      genres: string[];
+      languages: string[];
+      synopsis: string;
+      rating: number;
+      reviews: number;
+      trend: string;
+      palette: "amber" | "teal" | "rose" | "ivory" | "green";
+      workflowStatus: "Draft" | "Published";
+      status: "Published" | "Festival" | "Classic";
+      posterUrl: string;
+      backdropUrl: string;
+      trailerUrl: string;
+      trailerEmbedUrl?: string;
+      cast: Array<{ personSlug: string; name: string; character: string }>;
+      crew: Array<{ personSlug: string; name: string; job: string }>;
+    };
+
+    const duplicateName = `Ada Nfor ${Date.now()}`;
+    const saveResponse = await page.request.patch(`/api/admin/movies/${movie.id}`, {
+      data: {
+        mode: "draft",
+        movie: {
+          ...movie,
+          title: `Duplicate person smoke ${Date.now()}`,
+          slug: `duplicate-person-smoke-${Date.now()}`,
+          releaseYear: 2024,
+          country: "Cameroon",
+          runtimeMinutes: 102,
+          director: "Smoke Director",
+          genres: ["Drama"],
+          languages: ["English"],
+          synopsis:
+            "A focused smoke test payload that intentionally repeats the same custom contributor name across cast and crew credits.",
+          trend: "Admin duplicate person test",
+          cast: [
+            { personSlug: "", name: duplicateName, character: "Lead" },
+            { personSlug: "", name: duplicateName, character: "Narrator" },
+          ],
+          crew: [
+            { personSlug: "", name: duplicateName, job: "Director" },
+            { personSlug: "", name: duplicateName, job: "Writer" },
+          ],
+        },
+      },
+    });
+
+    expect(saveResponse.status()).toBe(200);
+    const savedMovie = (await saveResponse.json()) as {
+      cast: Array<{ personSlug: string }>;
+      crew: Array<{ personSlug: string }>;
+    };
+
+    const personSlugs = new Set([
+      ...savedMovie.cast.map((credit) => credit.personSlug),
+      ...savedMovie.crew.map((credit) => credit.personSlug),
+    ]);
+
+    expect(savedMovie.cast).toHaveLength(2);
+    expect(savedMovie.crew).toHaveLength(2);
+    expect(personSlugs.size).toBe(1);
+  });
+
   test("review surfaces keep film language context visible", async ({ page }) => {
     await page.goto("/reviews");
 

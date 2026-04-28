@@ -169,6 +169,8 @@ export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?
       : normalized.slug;
 
     const personMap = new Map<string, Person>(people.map((person) => [person.slug, person]));
+    const knownPersonSlugs = new Set(people.map((person) => person.slug));
+    const customPeopleByName = new Map<string, string>();
 
     const ensurePerson = async (credit: CastCredit | CrewCredit, type: "cast" | "crew") => {
       if (credit.personSlug.trim().length > 0) {
@@ -185,7 +187,13 @@ export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?
         throw new Error("Custom credits must include a display name.");
       }
 
-      const slug = createUniqueSlug(name, people.map((person) => person.slug));
+      const customPersonKey = slugify(name);
+      const existingCustomPersonId = customPeopleByName.get(customPersonKey);
+      if (existingCustomPersonId) {
+        return existingCustomPersonId;
+      }
+
+      const slug = createUniqueSlug(name, Array.from(knownPersonSlugs));
       const createdPerson = await tx.person.create({
         data: {
           id: slug,
@@ -215,28 +223,26 @@ export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?
         photoUrl: createdPerson.photoUrl ?? undefined,
       };
       people.push(mappedPerson);
+      knownPersonSlugs.add(mappedPerson.slug);
+      customPeopleByName.set(customPersonKey, mappedPerson.id);
       personMap.set(mappedPerson.slug, mappedPerson);
 
       return createdPerson.id;
     };
 
-    const castCredits = await Promise.all(
-      normalized.cast.map(async (credit, index) => ({
-        sortOrder: index,
-        character: credit.character,
-        creditedAs: credit.name,
-        personId: await ensurePerson(credit, "cast"),
-      })),
-    );
+    const castCredits = await mapCreditsSequentially(normalized.cast, async (credit, index) => ({
+      sortOrder: index,
+      character: credit.character,
+      creditedAs: credit.name,
+      personId: await ensurePerson(credit, "cast"),
+    }));
 
-    const crewCredits = await Promise.all(
-      normalized.crew.map(async (credit, index) => ({
-        sortOrder: index,
-        job: credit.job,
-        creditedAs: credit.name,
-        personId: await ensurePerson(credit, "crew"),
-      })),
-    );
+    const crewCredits = await mapCreditsSequentially(normalized.crew, async (credit, index) => ({
+      sortOrder: index,
+      job: credit.job,
+      creditedAs: credit.name,
+      personId: await ensurePerson(credit, "crew"),
+    }));
 
     await tx.movie.update({
       where: { id: normalized.id },
@@ -393,6 +399,19 @@ function validateMovieTaxonomy(movie: AdminMovieInput, languages: string[], genr
 
 function uniqueTrimmed(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)));
+}
+
+async function mapCreditsSequentially<TInput, TOutput>(
+  credits: TInput[],
+  mapper: (credit: TInput, index: number) => Promise<TOutput>,
+) {
+  const results: TOutput[] = [];
+
+  for (const [index, credit] of credits.entries()) {
+    results.push(await mapper(credit, index));
+  }
+
+  return results;
 }
 
 function createUniqueSlug(value: string, existingSlugs: string[]) {

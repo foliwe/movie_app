@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
   const session = await createSession(user.id, request.headers.get("user-agent"));
   const response = NextResponse.json({ user }, { status: 201 });
-  setSessionCookie(response, session.token, session.expiresAt);
+  setSessionCookie(response, request, session.token, session.expiresAt);
 
   return response;
 }
