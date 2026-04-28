@@ -1,22 +1,14 @@
-import { redirect } from "next/navigation";
 import { AccountProfileSection } from "@/components/detail-views";
-import { getCurrentUser } from "@/lib/auth";
-import { getCurrentAccountSettingsData } from "@/lib/catalog-data";
+import { getRequiredAccountPageData, renderAccountPage } from "@/app/account/account-page";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountProfilePage() {
-  const user = await getCurrentUser();
+  const { accountData, counts } = await getRequiredAccountPageData("/account/profile");
 
-  if (!user) {
-    redirect("/login?next=/account/profile");
-  }
-
-  const accountData = await getCurrentAccountSettingsData(user.id);
-
-  if (!accountData) {
-    redirect("/");
-  }
-
-  return <AccountProfileSection profile={accountData.profile} availableLanguages={accountData.availableLanguages} />;
+  return renderAccountPage(
+    accountData.profile,
+    counts,
+    <AccountProfileSection profile={accountData.profile} availableLanguages={accountData.availableLanguages} />,
+  );
 }

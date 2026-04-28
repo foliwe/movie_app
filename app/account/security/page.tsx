@@ -1,22 +1,10 @@
-import { redirect } from "next/navigation";
 import { AccountSecuritySection } from "@/components/detail-views";
-import { getCurrentUser } from "@/lib/auth";
-import { getCurrentAccountSettingsData } from "@/lib/catalog-data";
+import { getRequiredAccountPageData, renderAccountPage } from "@/app/account/account-page";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountSecurityPage() {
-  const user = await getCurrentUser();
+  const { accountData, counts } = await getRequiredAccountPageData("/account/security");
 
-  if (!user) {
-    redirect("/login?next=/account/security");
-  }
-
-  const accountData = await getCurrentAccountSettingsData(user.id);
-
-  if (!accountData) {
-    redirect("/");
-  }
-
-  return <AccountSecuritySection email={accountData.profile.email} />;
+  return renderAccountPage(accountData.profile, counts, <AccountSecuritySection email={accountData.profile.email} />);
 }

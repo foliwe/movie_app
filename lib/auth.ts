@@ -266,6 +266,7 @@ export async function resetPasswordWithToken(token: string, password: string) {
 
   return prisma.$transaction(async (tx) => {
     const tokenHash = hashPasswordResetToken(token);
+    const consumedAt = new Date();
     const tokenRecord = await tx.passwordResetToken.findUnique({
       where: {
         tokenHash,
@@ -280,7 +281,24 @@ export async function resetPasswordWithToken(token: string, password: string) {
       },
     });
 
-    if (!tokenRecord || tokenRecord.usedAt || tokenRecord.expiresAt <= new Date()) {
+    if (!tokenRecord) {
+      throw new Error("This reset link is invalid or has expired.");
+    }
+
+    const consumeResult = await tx.passwordResetToken.updateMany({
+      where: {
+        id: tokenRecord.id,
+        usedAt: null,
+        expiresAt: {
+          gt: consumedAt,
+        },
+      },
+      data: {
+        usedAt: consumedAt,
+      },
+    });
+
+    if (consumeResult.count !== 1) {
       throw new Error("This reset link is invalid or has expired.");
     }
 
@@ -290,15 +308,6 @@ export async function resetPasswordWithToken(token: string, password: string) {
       },
       data: {
         passwordHash: hashPassword(password),
-      },
-    });
-
-    await tx.passwordResetToken.update({
-      where: {
-        id: tokenRecord.id,
-      },
-      data: {
-        usedAt: new Date(),
       },
     });
 

@@ -145,6 +145,7 @@ test.describe("movie app smoke suite", () => {
   test("password reset handles invalid, expired, reused tokens and invalidates prior sessions", async ({ page }) => {
     const email = `reset-flow-${Date.now()}@example.com`;
     const oldPassword = "password123";
+    const racedPassword = "racedpassword123";
     const newPassword = "newpassword123";
 
     await page.goto("/register");
@@ -176,6 +177,27 @@ test.describe("movie app smoke suite", () => {
     await page.getByPlaceholder("Repeat your new password").fill(newPassword);
     await page.getByRole("button", { name: "Save new password" }).click();
     await expect(page.getByText("This reset link is invalid or has expired.")).toBeVisible();
+
+    const concurrentReset = await createPasswordResetTokenForTest(email);
+    expect(concurrentReset?.token).toBeTruthy();
+    const concurrentResults = await Promise.all([
+      page.request.post("/api/auth/reset-password", {
+        data: {
+          token: concurrentReset?.token,
+          password: racedPassword,
+        },
+      }),
+      page.request.post("/api/auth/reset-password", {
+        data: {
+          token: concurrentReset?.token,
+          password: racedPassword,
+        },
+      }),
+    ]);
+    const concurrentStatuses = concurrentResults
+      .map((response) => response.status())
+      .sort((left, right) => left - right);
+    expect(concurrentStatuses).toEqual([200, 400]);
 
     const activeReset = await createPasswordResetTokenForTest(email);
     expect(activeReset?.token).toBeTruthy();
@@ -262,9 +284,9 @@ test.describe("movie app smoke suite", () => {
   });
 
   test("account routes require sign-in and signed-in settings update profile and password", async ({ page }) => {
-    for (const route of ["/account/profile", "/account/security", "/account/reviews"]) {
+    for (const route of ["/account/profile", "/account/security", "/account/reviews"] as const) {
       await page.goto(route);
-      await expect(page).toHaveURL(/\/login\?next=\/account\/(profile|security|reviews)/);
+      await expect(page).toHaveURL(`http://127.0.0.1:3000/login?next=${route}`);
     }
 
     const email = `account-${Date.now()}@example.com`;
