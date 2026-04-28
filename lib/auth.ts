@@ -7,6 +7,7 @@ export const sessionCookieName = "mboko_session";
 
 const sessionDurationDays = 30;
 const passwordKeyLength = 64;
+const passwordResetDurationMinutes = 30;
 
 export type AuthUser = {
   id: string;
@@ -23,6 +24,14 @@ export function normalizeEmail(email: string) {
 
 export function normalizeDisplayName(displayName: string) {
   return displayName.trim().replace(/\s+/g, " ");
+}
+
+export function normalizeSingleLineText(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+export function normalizeTextarea(value: string) {
+  return value.trim();
 }
 
 export function isValidEmail(email: string) {
@@ -81,6 +90,10 @@ export function verifyPassword(password: string, passwordHash: string | null) {
 }
 
 export function hashSessionToken(token: string) {
+  return createHash("sha256").update(token).digest("base64url");
+}
+
+export function hashPasswordResetToken(token: string) {
   return createHash("sha256").update(token).digest("base64url");
 }
 
@@ -184,4 +197,178 @@ export async function deleteCurrentSession() {
       tokenHash: hashSessionToken(token),
     },
   });
+}
+
+export async function deleteSessionsForUser(userId: string) {
+  await prisma.session.deleteMany({
+    where: {
+      userId,
+    },
+  });
+}
+
+export async function createPasswordResetToken(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + passwordResetDurationMinutes * 60 * 1000);
+
+  await prisma.passwordResetToken.deleteMany({
+    where: {
+      userId: user.id,
+    },
+  });
+
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashPasswordResetToken(token),
+      expiresAt,
+    },
+  });
+
+  return { token, expiresAt, userId: user.id };
+}
+
+export async function getPasswordResetTokenRecord(token: string) {
+  return prisma.passwordResetToken.findUnique({
+    where: {
+      tokenHash: hashPasswordResetToken(token),
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+        },
+      },
+    },
+  });
+}
+
+export function isUsablePasswordResetToken(
+  tokenRecord: { expiresAt: Date; usedAt: Date | null } | null,
+) {
+  return Boolean(tokenRecord && tokenRecord.usedAt === null && tokenRecord.expiresAt > new Date());
+}
+
+export async function resetPasswordWithToken(token: string, password: string) {
+  if (!isValidPassword(password)) {
+    throw new Error("Use a password with at least 8 characters.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const tokenHash = hashPasswordResetToken(token);
+    const consumedAt = new Date();
+    const tokenRecord = await tx.passwordResetToken.findUnique({
+      where: {
+        tokenHash,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!tokenRecord) {
+      throw new Error("This reset link is invalid or has expired.");
+    }
+
+    const consumeResult = await tx.passwordResetToken.updateMany({
+      where: {
+        id: tokenRecord.id,
+        usedAt: null,
+        expiresAt: {
+          gt: consumedAt,
+        },
+      },
+      data: {
+        usedAt: consumedAt,
+      },
+    });
+
+    if (consumeResult.count !== 1) {
+      throw new Error("This reset link is invalid or has expired.");
+    }
+
+    await tx.user.update({
+      where: {
+        id: tokenRecord.userId,
+      },
+      data: {
+        passwordHash: hashPassword(password),
+      },
+    });
+
+    await tx.passwordResetToken.deleteMany({
+      where: {
+        userId: tokenRecord.userId,
+        id: {
+          not: tokenRecord.id,
+        },
+      },
+    });
+
+    await tx.session.deleteMany({
+      where: {
+        userId: tokenRecord.userId,
+      },
+    });
+
+    return {
+      userId: tokenRecord.userId,
+      email: tokenRecord.user.email,
+    };
+  });
+}
+
+export async function changePasswordForUser(userId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+    },
+  });
+
+  if (!user || !currentPassword || !verifyPassword(currentPassword, user.passwordHash)) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  if (!isValidPassword(newPassword)) {
+    throw new Error("Use a password with at least 8 characters.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        passwordHash: hashPassword(newPassword),
+      },
+    });
+
+    await tx.session.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+  });
+
+  return user;
 }

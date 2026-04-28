@@ -1419,6 +1419,117 @@ blockquote cite {
   font-weight: 800;
 }
 
+.checkbox-field {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.checkbox-field legend {
+  padding: 0;
+  color: var(--amber);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-shell-grid {
+  align-items: start;
+}
+
+.account-sidebar,
+.account-main-panel {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.account-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-tabs a {
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(243, 236, 220, 0.03);
+}
+
+.account-tabs a.is-active {
+  color: var(--text);
+  border-color: rgba(84, 197, 173, 0.48);
+  background: rgba(84, 197, 173, 0.12);
+}
+
+.account-panel-heading {
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.account-panel-heading > div {
+  display: grid;
+  gap: 6px;
+}
+
+.account-panel-heading p {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.account-readonly-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: rgba(243, 236, 220, 0.03);
+}
+
+.account-readonly-card strong {
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-readonly-card span {
+  color: rgba(243, 236, 220, 0.86);
+}
+
+.account-language-field {
+  gap: 12px;
+}
+
+.account-language-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.account-language-option {
+  color: rgba(243, 236, 220, 0.86);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .review-insight-grid,
 .review-form-actions,
 .review-preview-topline,
@@ -2185,6 +2296,10 @@ blockquote cite {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .account-language-grid {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar-stack {
     position: static;
   }
@@ -2314,6 +2429,14 @@ blockquote cite {
   .expanded-review footer {
     grid-column: 2;
     justify-items: start;
+  }
+
+  .account-tabs {
+    flex-direction: column;
+  }
+
+  .account-tabs a {
+    width: 100%;
   }
 }
 

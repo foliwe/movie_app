@@ -2,7 +2,7 @@ import { cache } from "react";
 import { Prisma, type Palette } from "@/generated/prisma/client";
 import type { AuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { CastCredit, CrewCredit, Movie, Person, Review, UserProfile } from "@/lib/movies";
+import type { AccountProfile, CastCredit, CrewCredit, Movie, Person, Review, UserProfile } from "@/lib/movies";
 
 const movieInclude = {
   languages: {
@@ -192,6 +192,14 @@ function mapUserProfile(record: UserRecord): UserProfile {
     watched: record.watchedCount,
     reviews: record.reviewCount,
     averageRating: record.averageRating,
+  };
+}
+
+function mapAccountProfile(record: UserRecord): AccountProfile {
+  return {
+    ...mapUserProfile(record),
+    email: record.email,
+    role: record.role,
   };
 }
 
@@ -436,6 +444,26 @@ export const getAccountReviews = cache(async (authorId: string) => {
   });
 
   return reviews.map(mapReview);
+});
+
+export const getCurrentAccountSettingsData = cache(async (userId: string) => {
+  const [user, availableLanguages] = await Promise.all([
+    prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    }),
+    getAdminCatalogueLanguages(),
+  ]);
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    profile: mapAccountProfile(user),
+    availableLanguages: availableLanguages.filter((language) => language !== "All"),
+  };
 });
 
 export const getAdminReviews = cache(async () => {

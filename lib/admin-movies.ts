@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   getAdminCatalogueGenres,
@@ -7,6 +8,93 @@ import {
 } from "@/lib/catalog-data";
 import { slugify } from "@/lib/admin-movie-shared";
 import type { CastCredit, CrewCredit, Movie, Person } from "@/lib/movies";
+
+const adminMovieInclude = {
+  languages: {
+    include: {
+      language: true,
+    },
+    orderBy: {
+      sortOrder: "asc",
+    },
+  },
+  genres: {
+    include: {
+      genre: true,
+    },
+    orderBy: {
+      sortOrder: "asc",
+    },
+  },
+  galleryImages: {
+    orderBy: {
+      sortOrder: "asc",
+    },
+  },
+  castCredits: {
+    include: {
+      person: true,
+    },
+    orderBy: {
+      sortOrder: "asc",
+    },
+  },
+  crewCredits: {
+    include: {
+      person: true,
+    },
+    orderBy: {
+      sortOrder: "asc",
+    },
+  },
+} satisfies Prisma.MovieInclude;
+
+type AdminMovieRecord = Prisma.MovieGetPayload<{ include: typeof adminMovieInclude }>;
+
+function mapAdminMovie(record: AdminMovieRecord): Movie {
+  return {
+    id: record.id,
+    slug: record.slug,
+    title: record.title,
+    originalTitle: record.originalTitle ?? undefined,
+    releaseYear: record.releaseYear,
+    releaseDate: record.releaseDate?.toISOString().slice(0, 10),
+    country: record.country,
+    runtimeMinutes: record.runtimeMinutes,
+    director: record.director,
+    genres: record.genres.map((entry) => entry.genre.name),
+    languages: record.languages.map((entry) => entry.language.name),
+    synopsis: record.synopsis,
+    rating: record.averageRating,
+    reviews: record.communityReviewCount,
+    trend: record.trend,
+    palette: record.palette,
+    workflowStatus: record.workflowStatus,
+    status: record.status,
+    posterUrl: record.posterUrl,
+    backdropUrl: record.backdropUrl,
+    trailerUrl: record.trailerUrl,
+    trailerEmbedUrl: record.trailerEmbedUrl ?? undefined,
+    galleryImages: record.galleryImages.map((image) => ({
+      src: image.src,
+      alt: image.alt,
+    })),
+    cast: record.castCredits.map((credit) => ({
+      personSlug: credit.person.slug,
+      name: credit.creditedAs ?? credit.person.name,
+      character: credit.character,
+      photoUrl: credit.person.photoUrl ?? undefined,
+      palette: credit.person.palette,
+    })),
+    crew: record.crewCredits.map((credit) => ({
+      personSlug: credit.person.slug,
+      name: credit.creditedAs ?? credit.person.name,
+      job: credit.job,
+      photoUrl: credit.person.photoUrl ?? undefined,
+      palette: credit.person.palette,
+    })),
+  };
+}
 
 export type AdminMovieInput = Pick<
   Movie,
@@ -107,8 +195,12 @@ export async function createAdminDraft() {
 }
 
 export async function getAdminMovieById(id: string) {
-  const movies = await getAdminCatalogueMovies();
-  return movies.find((movie) => movie.id === id) ?? null;
+  const movie = await prisma.movie.findUnique({
+    where: { id },
+    include: adminMovieInclude,
+  });
+
+  return movie ? mapAdminMovie(movie) : null;
 }
 
 export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?: Movie["workflowStatus"]) {

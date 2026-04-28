@@ -24,7 +24,7 @@ export const uiCopy = {
     people: "People",
     search: "Search",
     profiles: "Profiles",
-    account: "My reviews",
+    account: "Account",
     signIn: "Sign in",
     signOut: "Sign out",
     admin: "Admin",
@@ -38,7 +38,7 @@ export const uiCopy = {
     people: "Artistes",
     search: "Recherche",
     profiles: "Profils",
-    account: "Mes critiques",
+    account: "Compte",
     signIn: "Connexion",
     signOut: "Deconnexion",
     admin: "Admin",
@@ -59,7 +59,7 @@ export function SiteHeader() {
     { label: t.search, href: "/search" },
     { label: t.people, href: "/people/rosine-mbakam" },
     { label: t.profiles, href: "/profile/aline-n" },
-    ...(authUser ? [{ label: t.account, href: "/account/reviews" }] : []),
+    ...(authUser ? [{ label: t.account, href: "/account/profile" }] : []),
     ...(authUser?.role === "Admin" ? [{ label: t.admin, href: "/admin/movies" }] : []),
   ];
   const authInitials = authUser?.displayName

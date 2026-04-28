@@ -1,4 +1,46 @@
+import { createHash, randomBytes } from "crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { Client } from "pg";
+
+const databaseUrl = process.env.DATABASE_URL ?? "postgresql://movieapp:movieapp@localhost:5432/movieapp";
+
+function hashPasswordResetToken(token: string) {
+  return createHash("sha256").update(token).digest("base64url");
+}
+
+async function createPasswordResetTokenForTest(
+  email: string,
+  options?: { expiresAt?: Date; usedAt?: Date | null },
+) {
+  const client = new Client({
+    connectionString: databaseUrl,
+  });
+
+  await client.connect();
+
+  try {
+    const userResult = await client.query<{ id: string }>('select id from "User" where email = $1 limit 1', [email]);
+    const userId = userResult.rows[0]?.id;
+
+    if (!userId) {
+      return null;
+    }
+
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = options?.expiresAt ?? new Date(Date.now() + 30 * 60 * 1000);
+    const usedAt = options?.usedAt ?? null;
+
+    await client.query('delete from "PasswordResetToken" where "userId" = $1', [userId]);
+    await client.query(
+      'insert into "PasswordResetToken" (id, "userId", "tokenHash", "expiresAt", "usedAt") values ($1, $2, $3, $4, $5)',
+      [randomBytes(16).toString("hex"), userId, hashPasswordResetToken(token), expiresAt, usedAt],
+    );
+
+    return { token, userId };
+  } finally {
+    await client.end();
+  }
+}
 
 async function signInAdmin(page: Page) {
   await page.goto("/login?next=/admin/movies");
@@ -10,6 +52,8 @@ async function signInAdmin(page: Page) {
 }
 
 test.describe("movie app smoke suite", () => {
+  test.describe.configure({ mode: "serial" });
+
   test("core routes render a main heading", async ({ page }) => {
     const routes = [
       "/",
@@ -77,6 +121,119 @@ test.describe("movie app smoke suite", () => {
     await expect(page.getByText("Account session is active.")).toBeVisible();
   });
 
+  test("forgot-password records the request and validates input", async ({ page }) => {
+    const email = `reset-link-${Date.now()}@example.com`;
+
+    await page.goto("/register");
+    await page.getByPlaceholder("Aline N.").fill("Reset Link Smoke");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill("password123");
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    await page.goto("/forgot-password");
+    await page.getByPlaceholder("you@example.com").fill("invalid-email");
+    await page.getByRole("button", { name: "Send reset link" }).click();
+    await expect(page.getByText("Use a valid email address to continue.")).toBeVisible();
+
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByRole("button", { name: "Send reset link" }).click();
+    await expect(page.getByText("If that account exists, we recorded the reset request.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open reset link" })).toHaveCount(0);
+  });
+
+  test("password reset handles invalid, expired, reused tokens and invalidates prior sessions", async ({ page }) => {
+    const email = `reset-flow-${Date.now()}@example.com`;
+    const oldPassword = "password123";
+    const racedPassword = "racedpassword123";
+    const newPassword = "newpassword123";
+
+    await page.goto("/register");
+    await page.getByPlaceholder("Aline N.").fill("Reset Flow Smoke");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    const invalidReset = await page.request.post("/api/auth/reset-password", {
+      data: {
+        token: "not-a-real-token",
+        password: newPassword,
+      },
+    });
+    expect(invalidReset.status()).toBe(400);
+    expect(await invalidReset.json()).toMatchObject({
+      message: "This reset link is invalid or has expired.",
+    });
+
+    const expiredReset = await createPasswordResetTokenForTest(email, {
+      expiresAt: new Date(Date.now() - 60_000),
+      usedAt: new Date(Date.now() - 30_000),
+    });
+    expect(expiredReset?.token).toBeTruthy();
+
+    await page.goto(`/reset-password/${expiredReset?.token}`);
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByPlaceholder("Repeat your new password").fill(newPassword);
+    await page.getByRole("button", { name: "Save new password" }).click();
+    await expect(page.getByText("This reset link is invalid or has expired.")).toBeVisible();
+
+    const concurrentReset = await createPasswordResetTokenForTest(email);
+    expect(concurrentReset?.token).toBeTruthy();
+    const concurrentResults = await Promise.all([
+      page.request.post("/api/auth/reset-password", {
+        data: {
+          token: concurrentReset?.token,
+          password: racedPassword,
+        },
+      }),
+      page.request.post("/api/auth/reset-password", {
+        data: {
+          token: concurrentReset?.token,
+          password: racedPassword,
+        },
+      }),
+    ]);
+    const concurrentStatuses = concurrentResults
+      .map((response) => response.status())
+      .sort((left, right) => left - right);
+    expect(concurrentStatuses).toEqual([200, 400]);
+
+    const activeReset = await createPasswordResetTokenForTest(email);
+    expect(activeReset?.token).toBeTruthy();
+    const activeToken = activeReset?.token ?? "";
+
+    await page.goto(`/reset-password/${activeToken}`);
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByPlaceholder("Repeat your new password").fill(newPassword);
+    await page.getByRole("button", { name: "Save new password" }).click();
+    await expect(page.getByText("Password updated. Sign in with your new password.")).toBeVisible();
+
+    await page.goto("/account/profile");
+    await expect(page).toHaveURL(/\/login\?next=\/account\/profile/);
+
+    await page.goto("/login");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Email or password is incorrect.")).toBeVisible();
+
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    const reusedReset = await page.request.post("/api/auth/reset-password", {
+      data: {
+        token: activeToken,
+        password: "anotherpass123",
+      },
+    });
+    expect(reusedReset.status()).toBe(400);
+    expect(await reusedReset.json()).toMatchObject({
+      message: "This reset link is invalid or has expired.",
+    });
+  });
+
   test("write review restores local drafts and publishes to the database", async ({ page }) => {
     const email = `reviewer-${Date.now()}@example.com`;
     const reviewTitle = `Measured, intimate, unforgettable ${Date.now()}`;
@@ -112,7 +269,7 @@ test.describe("movie app smoke suite", () => {
     await expect(page.getByLabel("Contains spoilers", { exact: true })).not.toBeChecked();
 
     await page.goto("/account/reviews");
-    await expect(page.getByRole("heading", { name: "Your review desk" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "All authored reviews" })).toBeVisible();
     await expect(page.getByRole("link", { name: reviewTitle })).toBeVisible();
 
     await page.getByRole("link", { name: reviewTitle }).click();
@@ -124,6 +281,82 @@ test.describe("movie app smoke suite", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Delete review" }).click();
     await expect(page).toHaveURL(/\/profile\/review-smoke/);
+  });
+
+  test("account routes require sign-in and signed-in settings update profile and password", async ({ page }) => {
+    for (const route of ["/account/profile", "/account/security", "/account/reviews"] as const) {
+      await page.goto(route);
+      await expect(page).toHaveURL(`http://127.0.0.1:3000/login?next=${route}`);
+    }
+
+    const email = `account-${Date.now()}@example.com`;
+    const oldPassword = "password123";
+    const newPassword = "newpassword123";
+
+    await page.goto("/register");
+    await page.getByPlaceholder("Aline N.").fill("Account Owner");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    await page.goto("/account/profile");
+    await expect(page.getByRole("heading", { name: "Edit your public profile" })).toBeVisible();
+    await page.getByLabel("Display name", { exact: true }).fill("Account Editor");
+    await page.getByLabel("Location", { exact: true }).fill("Yaounde");
+    await page
+      .getByRole("textbox", { name: "Bio" })
+      .fill("Keeps notes on films that thrive in family rooms, classrooms, and long post-screening debates.");
+    await page.getByRole("checkbox", { name: "French", exact: true }).check();
+    await page.getByRole("checkbox", { name: "Pidgin", exact: true }).check();
+    await page.getByRole("button", { name: "Save profile" }).click();
+    await expect(page.getByText("Account profile updated.")).toBeVisible();
+
+    await page.getByRole("link", { name: "View public profile" }).click();
+    await expect(page.getByRole("heading", { name: "Account Editor" })).toBeVisible();
+    await expect(page.getByText("Keeps notes on films that thrive in family rooms, classrooms, and long post-screening debates.")).toBeVisible();
+    await expect(page.getByText("French, Pidgin")).toBeVisible();
+
+    await page.goto("/account/security");
+    await expect(page.getByRole("heading", { name: "Protect your sign-in" })).toBeVisible();
+
+    await page.getByLabel("Current password", { exact: true }).fill("wrongpassword");
+    await page.getByLabel("New password", { exact: true }).fill(newPassword);
+    await page.getByLabel("Confirm new password", { exact: true }).fill(newPassword);
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("Current password is incorrect.")).toBeVisible();
+
+    await page.getByLabel("Current password", { exact: true }).fill(oldPassword);
+    await page.getByLabel("New password", { exact: true }).fill("short");
+    await page.getByLabel("Confirm new password", { exact: true }).fill("short");
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("Use a password with at least 8 characters.")).toBeVisible();
+
+    await page.getByLabel("Current password", { exact: true }).fill(oldPassword);
+    await page.getByLabel("New password", { exact: true }).fill(newPassword);
+    await page.getByLabel("Confirm new password", { exact: true }).fill("differentpass123");
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("Use the same password in both fields.")).toBeVisible();
+
+    await page.getByLabel("Current password", { exact: true }).fill(oldPassword);
+    await page.getByLabel("New password", { exact: true }).fill(newPassword);
+    await page.getByLabel("Confirm new password", { exact: true }).fill(newPassword);
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("Password updated.")).toBeVisible();
+
+    await page.goto("/account/reviews");
+    await expect(page.getByRole("heading", { name: "All authored reviews" })).toBeVisible();
+
+    await page.request.post("/api/auth/logout");
+    await page.goto("/login");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Email or password is incorrect.")).toBeVisible();
+
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
   });
 
   test("admin movie desk previews and publishes a new draft", async ({ page }) => {
@@ -242,7 +475,7 @@ test.describe("movie app smoke suite", () => {
   test("review surfaces keep film language context visible", async ({ page }) => {
     await page.goto("/reviews");
 
-    await expect(page.getByText("Mambar Pierrette / French, Pidgin")).toBeVisible();
+    await expect(page.getByText("Mambar Pierrette / French, Pidgin").first()).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("French")).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("Pidgin")).toBeVisible();
   });
