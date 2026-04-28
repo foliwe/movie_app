@@ -1,148 +1,74 @@
-# Cameroon Movie Review Web App Plan
+# Cameroon Movie Review Web App Status
 
 ## Summary
-Build the product in two clear stages. Phase 1 delivers a frontend-only Next.js app with a modern cinematic UI, fully localized for English and French, with mocked data. Phase 2 adds the PostgreSQL backend, admin movie-entry workflow, authentication wiring, and persistent reviews.
+Mboko Reels is now a database-backed Next.js app for discovering Cameroonian films, writing reviews, and managing the catalogue through admin workflows. Public catalogue pages, account registration/login, persistent sessions, review publishing, review editing, review moderation, and admin movie publishing are all implemented against PostgreSQL through Prisma.
 
-The current frontend plan now also includes a targeted detail-page/media refactor: add cast headshots to credit links, add inline trailer and gallery support on movie detail pages, and consolidate repeated movie/review list markup into shared components.
+This milestone adds a local-development password reset flow so the account experience matches the rest of the real backend. Reset links are generated through the app, stored as hashed single-use tokens, and exposed only as local reset URLs during development.
 
-## Key Changes
-- Create a Next.js App Router project with TypeScript.
-- Design the UI in a cinematic editorial style suited to a Cameroon-focused movie platform rather than a generic SaaS layout.
-- Localize the interface in `en` and `fr`:
-  - Translate all UI copy, forms, navigation, filters, validation, and empty states.
-  - Keep movie content canonical in phase 1 unless explicit localized movie content is later added.
-- Define frontend domain models and mock data early so they map cleanly to the future database:
-  - `Movie` must include a required `languages: string[]` field.
-  - `Movie` also carries seeded media fields for `trailer_embed_url`-style playback and inline gallery images in the frontend mock layer.
-  - `Review` uses a 1-10 IMDb-style rating scale.
-  - `Person` supports optional seeded `photoUrl` data for cast and crew portraits.
-  - Supporting types include `Person`, `Genre`, `UserProfile`, `CastCredit`, `CrewCredit`, and gallery image metadata.
-- Build the complete phase-1 page set with mocked data:
-  - Home
-  - Discover/Browse
-  - Search
-  - Movie details
-  - Person details
-  - Reviews listing/detail
-  - Login, register, forgot password
-  - User profile
-  - Write review
-- Include reusable components for hero sections, movie cards, filters, rating widgets, review cards, fresh-review list items, language badges, navigation, responsive mobile layouts, and shared catalogue rows.
+## Current Product Surface
+- Public routes are live for home, movies, movie detail, people, search, reviews, review detail, login, register, forgot password, reset password, profile, and write review.
+- Catalogue reads come from PostgreSQL, including movie languages, genres, cast, crew, gallery media, and seeded review content.
+- Auth is persistent and session-based:
+  - registration creates real users
+  - login verifies hashed passwords
+  - logout clears the active session
+  - forgot/reset password uses database-backed reset tokens
+- Reviews are persistent:
+  - signed-in members can publish one review per movie
+  - authors can edit and delete their own reviews
+  - admins can review moderation state from the admin queue and manage review visibility
+- Admin movie workflows are persistent:
+  - admins can create draft movies
+  - drafts can be edited, previewed, and published into the public catalogue
+  - person, cast, crew, language, and genre relationships are normalized in the database
 
-## Current Detail Refactor
-- Upgrade movie detail credit links to show a cast or crew portrait when seeded data includes one, and fall back to palette/initial avatars when it does not.
-- Add an inline media section to `/movies/[slug]` with:
-  - embedded trailer playback when `trailerEmbedUrl` is present
-  - external trailer fallback when only `trailerUrl` exists
-  - a seeded still-image gallery rendered directly on the page
-- Refactor repeated list markup into shared UI:
-  - homepage fresh-review items become a dedicated component
-  - catalogue/movie rows are shared between the homepage discover list and person credit filmography sections
-- Seed local mock assets under `public/assets/people` and `public/assets/gallery` so the UI stays image-ready without remote dependencies.
-
-## Backend and Movie Entry Plan
-- Use PostgreSQL in phase 2 with normalized tables instead of storing multi-language movie data in a single text column.
-- Development status:
-  - PostgreSQL is now wired into the local development stack through Prisma.
-  - Seed data is loaded from the original mock catalogue so development starts with the same movies, people, reviews, and profiles.
-  - Public catalogue reads now come from the database for home, movies, movie detail, people, reviews, search, profile, and write-review route lookup.
-  - Auth forms and the admin movie desk remain UI-first mocks until persistence and protected actions are wired in the next backend pass.
-- Model movie creation as an admin-only workflow in v1:
-  - Admin creates or edits movies from a protected dashboard.
-  - Regular users can review movies, but cannot add catalog entries directly.
-- Plan the core schema around:
-  - `movies`
-  - `languages`
-  - `movie_languages`
-  - `genres`
-  - `movie_genres`
-  - `people`
-  - `movie_cast`
-  - `movie_crew`
-  - `reviews`
-  - `users`
-- `movies` should include fields like:
-  - `id`, `slug`, `title`, `original_title`, `release_year`, `release_date`, `country`, `runtime_minutes`, `synopsis`, `poster_url`, `backdrop_url`, `trailer_url`, `trailer_embed_url`, `status`, `created_at`, `updated_at`
-- `movie_languages` should link each movie to one or more rows in `languages`, so Cameroonian films can support multiple spoken languages cleanly.
-- Admin movie-entry UI for phase 2 should support:
-  - Draft/published status
-  - Multiple language selection
-  - Genre assignment
-  - Cast and crew association
-  - Poster/backdrop/trailer links
-  - Searchable edit flow for existing records
-
-## Deployment and Infrastructure Plan
-- Containerize the current application stack with Docker Compose in two layers:
-  - Base `compose.yaml` runs the existing Next.js app as `web` plus a PostgreSQL container as `postgres`.
-  - Production `compose.prod.yaml` adds `nginx` for reverse proxying and `certbot` for Let's Encrypt certificate lifecycle tasks.
-- Build the Next.js app with a multi-stage Docker image and standalone output so the runtime image only ships the production server bundle and static assets.
-- Use Docker-managed persistence for PostgreSQL with a named volume; database provisioning is available immediately even while the current UI still uses mocked data.
-- Terminate production traffic at Nginx:
-  - Port `80` serves ACME challenges and redirects to HTTPS after certificates exist.
-  - Port `443` proxies to the internal Next.js service on port `3000`.
-- Share environment configuration through a root `.env` file pattern, with `.env.example` documenting:
-  - `NODE_ENV`, `PORT`, `WEB_PORT`
-  - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `DATABASE_URL`, `DATABASE_URL_DOCKER`
-  - `DOMAIN`, `LETSENCRYPT_EMAIL`
-- Keep production certificate management explicit in the operator workflow:
-  - Start the stack with `docker compose -f compose.yaml -f compose.prod.yaml up -d`.
-  - Issue the first certificate with a one-off Certbot command against the shared webroot, for example:
-    `docker compose -f compose.yaml -f compose.prod.yaml run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot -d $DOMAIN --email $LETSENCRYPT_EMAIL --agree-tos --no-eff-email`
-  - Restart Nginx after initial issuance so it switches from HTTP-only bootstrap mode to the TLS config.
-  - Reload or restart Nginx after future renewals so updated certificate files are served immediately.
+## Auth and Reset Contract
+- Sessions use hashed opaque tokens stored in `Session`.
+- Password resets use hashed opaque tokens stored in `PasswordResetToken`.
+- Reset tokens are:
+  - single-use
+  - short-lived
+  - invalidated after a successful reset
+- A successful password reset revokes all active sessions for that user.
+- In development, `POST /api/auth/forgot-password` may return a local `resetHref` to open the reset page directly. Production should replace that behavior with real email delivery.
 
 ## Public Interfaces
-- Planned routes:
-  - `/`
-  - `/movies`
-  - `/movies/[slug]`
-  - `/people/[slug]`
-  - `/search`
-  - `/reviews`
-  - `/login`
-  - `/register`
-  - `/forgot-password`
-  - `/profile/[username]`
-  - `/write-review/[movieSlug]`
-  - Future phase-2 admin routes under `/admin/movies`
-- Language contract:
-  - UI supports `en` and `fr`.
-  - Movie records always include `languages` as a required multi-value field.
-- Frontend media contract:
-  - Movie mock data may include `trailerEmbedUrl` and a seeded `galleryImages` array for the detail-page media section.
-  - Person mock data may include `photoUrl` for credit-link portraits.
-- Rating contract:
-  - User ratings and aggregates are based on a 1-10 scale.
-- Deployment contract:
-  - Base Compose services are `web` and `postgres`.
-  - Production Compose adds `nginx` and `certbot`.
-  - Local containerized access uses host port `3000` for the web app.
-  - Production public traffic enters through Nginx on ports `80` and `443`, with the Next.js container reachable only on the internal Compose network.
+- Auth routes:
+  - `POST /api/auth/register`
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/me`
+  - `POST /api/auth/forgot-password`
+  - `POST /api/auth/reset-password`
+- Review routes:
+  - `POST /api/reviews`
+  - `PATCH /api/reviews/[id]`
+  - `DELETE /api/reviews/[id]`
+- Admin routes:
+  - `POST /api/admin/movies`
+  - `PATCH /api/admin/movies/[id]`
+  - `DELETE /api/admin/movies/[id]`
+- UI localization remains `en` and `fr`.
+- Ratings remain on a `1-10` scale.
 
-## Test Plan
-- Verify all frontend routes render with mocked data and no backend dependency in phase 1.
-- Verify the English/French switch updates interface text consistently across desktop and mobile.
-- Verify every movie presentation surface shows the movie language field when available.
-- Verify browse and search flows support filtering by language, genre, year, and rating in the UI.
-- Verify auth and write-review screens include complete UI states for loading, validation, error, and success placeholders.
-- Verify movie detail pages render the inline trailer area, gallery images, and mixed portrait/fallback credit avatars.
-- Verify the shared catalogue row component still supports both linked and selectable usage patterns.
-- Verify responsive behavior across mobile, tablet, and desktop.
-- In phase 2, verify admin movie creation correctly persists movies and related language rows in PostgreSQL.
-- In phase 2, verify a movie can be saved with multiple languages and later filtered correctly.
-- Verify `docker build` succeeds for the Next.js production image.
-- Verify `docker compose up` starts both `web` and `postgres`, with PostgreSQL reporting healthy.
-- Verify `docker compose -f compose.yaml -f compose.prod.yaml config` resolves cleanly for the production overlay.
-- Verify the HTTP-only Nginx bootstrap config serves `/.well-known/acme-challenge/` and proxies the app before certificates exist.
-- Verify the TLS Nginx config validates and proxies traffic correctly after Let's Encrypt certificates are issued.
+## Test Coverage
+- Playwright smoke coverage verifies:
+  - core route rendering
+  - search and locale switching
+  - registration and login
+  - forgot-password validation and local reset link generation
+  - password reset invalid, expired, valid, and reused token behavior
+  - session invalidation after password reset
+  - review draft restore, publish, edit, and delete flows
+  - admin movie publishing and duplicate-person handling
+  - admin review queue access
+  - draft-movie visibility rules
+  - media and credit rendering on movie detail pages
 
-## Assumptions
-- Phase 1 remains frontend-only; no live database or real auth integration is implemented yet.
-- Movies are added by admins only in the initial backend version.
-- The site is movie-focused first, not TV-series-focused.
-- Reviews are public-facing, but stored only as mock data until phase 2.
-- Detail-page media remains inline on the page in this iteration; no modal gallery or lightbox is required.
-- Seeded local assets are preferred over remote image dependencies for the current mock implementation.
-- Dockerized PostgreSQL is provisioned ahead of the real backend integration, but the current frontend does not query it yet.
-- Production deployment uses Nginx plus Let's Encrypt rather than exposing the Next.js server directly to the internet.
+## Remaining Gaps
+- Password reset delivery is development-only and still needs a real email provider for production.
+- Account management is still minimal:
+  - no change-password screen while signed in
+  - no editable profile settings UI
+- Review moderation exists, but there is no richer audit trail or moderation notes yet.
+- Deployment support exists in Docker/Nginx config, but production rollout validation and operator docs can still be expanded.

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clapperboard, Loader2, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
@@ -192,7 +192,8 @@ export function AdminMoviesClient({
   const [query, setQuery] = useState("");
   const [workflowFilter, setWorkflowFilter] = useState<WorkflowFilter>("All");
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   const selectedMovie = records.find((movie) => movie.id === selectedId) ?? null;
   const normalizedQuery = query.trim().toLowerCase();
@@ -241,6 +242,10 @@ export function AdminMoviesClient({
         genres: t.taxonomy,
       })
     : [];
+
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
 
   function updateSelectedMovie(updater: (movie: Movie) => Movie) {
     setRecords((current) =>
@@ -381,30 +386,32 @@ export function AdminMoviesClient({
   }
 
   async function createDraft() {
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/admin/movies", {
-          method: "POST",
-        });
+    setIsSubmitting(true);
 
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.message ?? "Failed to create draft.");
-        }
+    try {
+      const response = await fetch("/api/admin/movies", {
+        method: "POST",
+      });
 
-        replaceMovieRecord(payload as Movie);
-        setWorkflowFilter("All");
-        setFeedback({
-          tone: "success",
-          message: t.createSuccess,
-        });
-      } catch (error) {
-        setFeedback({
-          tone: "error",
-          message: error instanceof Error ? error.message : "Failed to create draft.",
-        });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.message ?? "Failed to create draft.");
       }
-    });
+
+      replaceMovieRecord(payload as Movie);
+      setWorkflowFilter("All");
+      setFeedback({
+        tone: "success",
+        message: t.createSuccess,
+      });
+    } catch (error) {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Failed to create draft.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function persistMovie(mode: "draft" | "publish") {
@@ -412,36 +419,38 @@ export function AdminMoviesClient({
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const response = await fetch(`/api/admin/movies/${selectedMovie.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            mode,
-            movie: selectedMovie,
-          }),
-        });
+    setIsSubmitting(true);
 
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.message ?? "Failed to save movie.");
-        }
+    try {
+      const response = await fetch(`/api/admin/movies/${selectedMovie.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mode,
+          movie: selectedMovie,
+        }),
+      });
 
-        replaceMovieRecord(payload as Movie);
-        setFeedback({
-          tone: "success",
-          message: mode === "publish" ? t.publishSuccess : t.saveSuccess,
-        });
-      } catch (error) {
-        setFeedback({
-          tone: "error",
-          message: error instanceof Error ? error.message : "Failed to save movie.",
-        });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.message ?? "Failed to save movie.");
       }
-    });
+
+      replaceMovieRecord(payload as Movie);
+      setFeedback({
+        tone: "success",
+        message: mode === "publish" ? t.publishSuccess : t.saveSuccess,
+      });
+    } catch (error) {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Failed to save movie.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -464,9 +473,9 @@ export function AdminMoviesClient({
                 <h2>{t.collection}</h2>
                 <p>{t.collectionBody}</p>
               </div>
-              <button className="admin-action-button" type="button" onClick={createDraft} disabled={isPending}>
-                {isPending ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
-                {isPending ? t.creating : t.newDraft}
+              <button className="admin-action-button" type="button" onClick={createDraft} disabled={!isReady || isSubmitting}>
+                {isSubmitting ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
+                {isSubmitting ? t.creating : t.newDraft}
               </button>
             </div>
 
@@ -821,11 +830,11 @@ export function AdminMoviesClient({
                 </section>
 
                 <div className="admin-form-actions">
-                  <button className="secondary-action admin-form-button" type="button" onClick={() => persistMovie("draft")} disabled={isPending}>
-                    {isPending ? t.saving : t.saveDraft}
+                  <button className="secondary-action admin-form-button" type="button" onClick={() => persistMovie("draft")} disabled={!isReady || isSubmitting}>
+                    {isSubmitting ? t.saving : t.saveDraft}
                   </button>
-                  <button className="primary-action admin-form-button" type="button" onClick={() => persistMovie("publish")} disabled={isPending}>
-                    {isPending ? t.saving : t.publishNow}
+                  <button className="primary-action admin-form-button" type="button" onClick={() => persistMovie("publish")} disabled={!isReady || isSubmitting}>
+                    {isSubmitting ? t.saving : t.publishNow}
                   </button>
                 </div>
               </>
@@ -833,8 +842,8 @@ export function AdminMoviesClient({
               <div className="admin-empty-editor">
                 <h2>{t.createFirst}</h2>
                 <p>{t.createFirstBody}</p>
-                <button className="primary-action admin-form-button" type="button" onClick={createDraft} disabled={isPending}>
-                  {isPending ? t.creating : t.newDraft}
+                <button className="primary-action admin-form-button" type="button" onClick={createDraft} disabled={!isReady || isSubmitting}>
+                  {isSubmitting ? t.creating : t.newDraft}
                 </button>
               </div>
             )}

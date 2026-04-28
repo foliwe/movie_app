@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { AuthForm } from "@/components/forms";
 import { PageHero, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
@@ -8,17 +9,18 @@ import { type Locale } from "@/lib/i18n";
 const copy = {
   en: {
     eyebrow: "Account",
-    title: "Recover access",
-    body: "Request a real local reset link that lets you set a fresh password for your account.",
+    title: "Choose a new password",
+    body: "Use the local reset link to secure your account again, then sign back in with the new password.",
   },
   fr: {
     eyebrow: "Compte",
-    title: "Recuperer l'acces",
-    body: "Demandez un vrai lien local de reinitialisation pour definir un nouveau mot de passe.",
+    title: "Choisissez un nouveau mot de passe",
+    body: "Utilisez le lien local de reinitialisation pour securiser votre compte, puis reconnectez-vous avec le nouveau mot de passe.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = use(params);
   const { locale } = useLocale();
   const t = copy[locale];
 
@@ -27,7 +29,7 @@ export default function ForgotPasswordPage() {
       <SiteHeader />
       <PageHero eyebrow={t.eyebrow} title={t.title} body={t.body} />
       <section className="auth-shell">
-        <AuthForm mode="forgot" />
+        <AuthForm mode="reset" token={token} />
       </section>
     </main>
   );

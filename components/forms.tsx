@@ -11,6 +11,7 @@ import { useLocale } from "@/components/locale-provider";
 
 type FormState = "idle" | "loading" | "error" | "success";
 type DraftStatus = "idle" | "dirty" | "saving" | "saved";
+type AuthMode = "login" | "register" | "forgot" | "reset";
 type DraftPayload = {
   version: 1;
   rating: number;
@@ -26,41 +27,59 @@ const authCopy = {
     loginTitle: "Welcome back",
     registerTitle: "Create your profile",
     forgotTitle: "Reset your password",
+    resetTitle: "Choose a new password",
     displayName: "Display name",
     email: "Email",
     password: "Password",
+    confirmPassword: "Confirm password",
     displayNamePlaceholder: "Aline N.",
     emailPlaceholder: "you@example.com",
     passwordPlaceholder: "At least 8 characters",
+    confirmPasswordPlaceholder: "Repeat your new password",
     invalidEmail: "Use a valid email address to continue.",
-    forgotSuccess: "Reset link prepared for the mock inbox.",
+    invalidPassword: "Use a password with at least 8 characters.",
+    mismatchPassword: "Use the same password in both fields.",
+    forgotSuccess: "Reset link prepared for local development.",
+    resetSuccess: "Password updated. Sign in with your new password.",
     authSuccess: "Account session is active.",
     authError: "We could not complete that account request.",
     signIn: "Sign in",
     register: "Register",
     sendReset: "Send reset link",
+    savePassword: "Save new password",
     forgotPassword: "Forgot password?",
+    resetPassword: "Reset password",
     createAccount: "Create account",
+    openResetLink: "Open reset link",
   },
   fr: {
     loginTitle: "Bon retour",
     registerTitle: "Creez votre profil",
     forgotTitle: "Reinitialisez votre mot de passe",
+    resetTitle: "Choisissez un nouveau mot de passe",
     displayName: "Nom affiche",
     email: "Email",
     password: "Mot de passe",
+    confirmPassword: "Confirmez le mot de passe",
     displayNamePlaceholder: "Aline N.",
     emailPlaceholder: "vous@example.com",
     passwordPlaceholder: "Au moins 8 caracteres",
+    confirmPasswordPlaceholder: "Repetez votre nouveau mot de passe",
     invalidEmail: "Utilisez une adresse email valide pour continuer.",
-    forgotSuccess: "Lien de reinitialisation prepare pour la boite mock.",
+    invalidPassword: "Utilisez un mot de passe d'au moins 8 caracteres.",
+    mismatchPassword: "Utilisez le meme mot de passe dans les deux champs.",
+    forgotSuccess: "Lien de reinitialisation prepare pour le developpement local.",
+    resetSuccess: "Mot de passe mis a jour. Connectez-vous avec le nouveau mot de passe.",
     authSuccess: "La session du compte est active.",
     authError: "Impossible de terminer cette demande de compte.",
     signIn: "Connexion",
     register: "Inscription",
     sendReset: "Envoyer le lien",
+    savePassword: "Enregistrer le nouveau mot de passe",
     forgotPassword: "Mot de passe oublie ?",
+    resetPassword: "Reinitialiser le mot de passe",
     createAccount: "Creer un compte",
+    openResetLink: "Ouvrir le lien de reinitialisation",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -158,14 +177,16 @@ const ownerReviewCopy = {
   },
 } satisfies Record<Locale, Record<string, string>>;
 
-export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
+export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState<FormState>("idle");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [successHref, setSuccessHref] = useState<string | null>(null);
   const { locale } = useLocale();
   const t = authCopy[locale];
   const nextPath = useMemo(() => {
@@ -182,17 +203,44 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
+    setSuccessHref(null);
     setState("loading");
 
-    if (mode === "forgot") {
-      window.setTimeout(() => {
-        setState(email.includes("@") ? "success" : "error");
-      }, 650);
+    if (mode === "forgot" && !email.includes("@")) {
+      setMessage(t.invalidEmail);
+      setState("error");
+      return;
+    }
+
+    if (mode === "reset") {
+      if (password.length < 8) {
+        setMessage(t.invalidPassword);
+        setState("error");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setMessage(t.mismatchPassword);
+        setState("error");
+        return;
+      }
+
+      if (!token) {
+        setMessage(t.authError);
+        setState("error");
+        return;
+      }
+    }
+
+    if ((mode === "login" || mode === "register") && password.length === 0) {
+      setMessage(t.invalidPassword);
+      setState("error");
       return;
     }
 
     try {
-      const response = await fetch(`/api/auth/${mode}`, {
+      const authPath = mode === "forgot" ? "forgot-password" : mode === "reset" ? "reset-password" : mode;
+      const response = await fetch(`/api/auth/${authPath}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -200,10 +248,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
         body: JSON.stringify({
           email,
           password,
+          token,
           displayName: name,
         }),
       });
-      const payload = (await response.json()) as { message?: string };
+      const payload = (await response.json()) as { message?: string; resetHref?: string };
 
       if (!response.ok) {
         setMessage(payload.message ?? t.authError);
@@ -211,11 +260,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
         return;
       }
 
-      setMessage(t.authSuccess);
+      setMessage(payload.message ?? (mode === "forgot" ? t.forgotSuccess : mode === "reset" ? t.resetSuccess : t.authSuccess));
+      setSuccessHref(payload.resetHref ?? null);
       setState("success");
       if (nextPath) {
         window.setTimeout(() => window.location.assign(nextPath), 250);
-      } else {
+      } else if (mode !== "forgot") {
         router.refresh();
       }
     } catch {
@@ -224,22 +274,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
     }
   }
 
-  const title = mode === "login" ? t.loginTitle : mode === "register" ? t.registerTitle : t.forgotTitle;
-  const success = mode === "forgot" ? t.forgotSuccess : t.authSuccess;
+  const title =
+    mode === "login" ? t.loginTitle : mode === "register" ? t.registerTitle : mode === "forgot" ? t.forgotTitle : t.resetTitle;
+  const success = mode === "forgot" ? t.forgotSuccess : mode === "reset" ? t.resetSuccess : t.authSuccess;
 
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
       <h2>{title}</h2>
+      {mode === "reset" ? <input type="text" name="username" autoComplete="username" value="" readOnly hidden /> : null}
       {mode === "register" ? (
         <label>
           {t.displayName}
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t.displayNamePlaceholder} />
         </label>
       ) : null}
-      <label>
-        {t.email}
-        <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t.emailPlaceholder} />
-      </label>
+      {mode !== "reset" ? (
+        <label>
+          {t.email}
+          <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t.emailPlaceholder} />
+        </label>
+      ) : null}
       {mode !== "forgot" ? (
         <label>
           {t.password}
@@ -248,6 +302,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder={t.passwordPlaceholder}
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+          />
+        </label>
+      ) : null}
+      {mode === "reset" ? (
+        <label>
+          {t.confirmPassword}
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder={t.confirmPasswordPlaceholder}
+            autoComplete="new-password"
           />
         </label>
       ) : null}
@@ -258,13 +325,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
           {message ?? success}
         </p>
       ) : null}
+      {successHref ? (
+        <div className="form-links">
+          <Link href={successHref}>{t.openResetLink}</Link>
+        </div>
+      ) : null}
       <button className="primary-action" type="submit" disabled={state === "loading"}>
         {state === "loading" ? <Loader2 className="spin" size={18} /> : null}
-        {mode === "login" ? t.signIn : mode === "register" ? t.register : t.sendReset}
+        {mode === "login"
+          ? t.signIn
+          : mode === "register"
+            ? t.register
+            : mode === "forgot"
+              ? t.sendReset
+              : t.savePassword}
       </button>
       <div className="form-links">
-        {mode !== "login" ? <Link href={loginHref}>{t.signIn}</Link> : <Link href="/forgot-password">{t.forgotPassword}</Link>}
-        {mode !== "register" ? <Link href={registerHref}>{t.createAccount}</Link> : null}
+        {mode === "reset" ? <Link href={loginHref}>{t.signIn}</Link> : null}
+        {mode !== "login" && mode !== "reset" ? <Link href={loginHref}>{t.signIn}</Link> : null}
+        {mode === "login" ? <Link href="/forgot-password">{t.forgotPassword}</Link> : null}
+        {mode !== "register" && mode !== "reset" ? <Link href={registerHref}>{t.createAccount}</Link> : null}
       </div>
     </form>
   );

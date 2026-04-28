@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
+function getResetTokenFromHref(resetHref: string) {
+  const parts = resetHref.split("/");
+  return parts[parts.length - 1] ?? "";
+}
+
 async function signInAdmin(page: Page) {
   await page.goto("/login?next=/admin/movies");
   await page.getByPlaceholder("you@example.com").fill("admin@example.com");
@@ -10,6 +15,8 @@ async function signInAdmin(page: Page) {
 }
 
 test.describe("movie app smoke suite", () => {
+  test.describe.configure({ mode: "serial" });
+
   test("core routes render a main heading", async ({ page }) => {
     const routes = [
       "/",
@@ -75,6 +82,109 @@ test.describe("movie app smoke suite", () => {
     await page.getByPlaceholder("At least 8 characters").fill("password123");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Account session is active.")).toBeVisible();
+  });
+
+  test("forgot-password exposes a local reset link and validates input", async ({ page }) => {
+    const email = `reset-link-${Date.now()}@example.com`;
+
+    await page.goto("/register");
+    await page.getByPlaceholder("Aline N.").fill("Reset Link Smoke");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill("password123");
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    await page.goto("/forgot-password");
+    await page.getByPlaceholder("you@example.com").fill("invalid-email");
+    await page.getByRole("button", { name: "Send reset link" }).click();
+    await expect(page.getByText("Use a valid email address to continue.")).toBeVisible();
+
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByRole("button", { name: "Send reset link" }).click();
+    await expect(page.getByText("If that account exists, a local reset link is ready.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open reset link" })).toBeVisible();
+  });
+
+  test("password reset handles invalid, expired, reused tokens and invalidates prior sessions", async ({ page }) => {
+    const email = `reset-flow-${Date.now()}@example.com`;
+    const oldPassword = "password123";
+    const newPassword = "newpassword123";
+
+    await page.goto("/register");
+    await page.getByPlaceholder("Aline N.").fill("Reset Flow Smoke");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    const invalidReset = await page.request.post("/api/auth/reset-password", {
+      data: {
+        token: "not-a-real-token",
+        password: newPassword,
+      },
+    });
+    expect(invalidReset.status()).toBe(400);
+    expect(await invalidReset.json()).toMatchObject({
+      message: "This reset link is invalid or has expired.",
+    });
+
+    const resetRequest = await page.request.post("/api/auth/forgot-password", {
+      data: { email },
+    });
+    expect(resetRequest.status()).toBe(200);
+    const resetPayload = (await resetRequest.json()) as { resetHref?: string };
+    expect(resetPayload.resetHref).toBeTruthy();
+    const initialToken = getResetTokenFromHref(resetPayload.resetHref ?? "");
+
+    const expireResponse = await page.request.post("/api/auth/dev/password-reset/expire", {
+      data: {
+        token: initialToken,
+      },
+    });
+    expect(expireResponse.status()).toBe(200);
+
+    await page.goto(`/reset-password/${initialToken}`);
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByPlaceholder("Repeat your new password").fill(newPassword);
+    await page.getByRole("button", { name: "Save new password" }).click();
+    await expect(page.getByText("This reset link is invalid or has expired.")).toBeVisible();
+
+    const activeResetRequest = await page.request.post("/api/auth/forgot-password", {
+      data: { email },
+    });
+    expect(activeResetRequest.status()).toBe(200);
+    const activeResetPayload = (await activeResetRequest.json()) as { resetHref?: string };
+    const activeToken = getResetTokenFromHref(activeResetPayload.resetHref ?? "");
+
+    await page.goto(`/reset-password/${activeToken}`);
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByPlaceholder("Repeat your new password").fill(newPassword);
+    await page.getByRole("button", { name: "Save new password" }).click();
+    await expect(page.getByText("Password updated. Sign in with your new password.")).toBeVisible();
+
+    await page.goto("/account/reviews");
+    await expect(page).toHaveURL(/\/login\?next=\/account\/reviews/);
+
+    await page.goto("/login");
+    await page.getByPlaceholder("you@example.com").fill(email);
+    await page.getByPlaceholder("At least 8 characters").fill(oldPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Email or password is incorrect.")).toBeVisible();
+
+    await page.getByPlaceholder("At least 8 characters").fill(newPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Account session is active.")).toBeVisible();
+
+    const reusedReset = await page.request.post("/api/auth/reset-password", {
+      data: {
+        token: activeToken,
+        password: "anotherpass123",
+      },
+    });
+    expect(reusedReset.status()).toBe(400);
+    expect(await reusedReset.json()).toMatchObject({
+      message: "This reset link is invalid or has expired.",
+    });
   });
 
   test("write review restores local drafts and publishes to the database", async ({ page }) => {
@@ -242,7 +352,7 @@ test.describe("movie app smoke suite", () => {
   test("review surfaces keep film language context visible", async ({ page }) => {
     await page.goto("/reviews");
 
-    await expect(page.getByText("Mambar Pierrette / French, Pidgin")).toBeVisible();
+    await expect(page.getByText("Mambar Pierrette / French, Pidgin").first()).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("French")).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("Pidgin")).toBeVisible();
   });
