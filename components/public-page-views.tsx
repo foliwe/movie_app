@@ -101,7 +101,7 @@ const reviewsCopy = {
     pickFilm: "Pick a film",
     reviewTitle: "Review a title",
     startWithFilm: "Start with a film",
-    asideBody: "Write-review routes are still local-form mocks for now, but they now point at database-backed movie records.",
+    asideBody: "Choose a published film, sign in, and publish your review directly to the database-backed community feed.",
   },
   fr: {
     eyebrow: "Critiques de la communaute",
@@ -111,7 +111,7 @@ const reviewsCopy = {
     pickFilm: "Choisir un film",
     reviewTitle: "Critiquer un titre",
     startWithFilm: "Commencez par un film",
-    asideBody: "Les routes write-review restent des formulaires mock pour l'instant, mais elles pointent maintenant vers des films charges depuis la base.",
+    asideBody: "Choisissez un film publie, connectez-vous et publiez votre critique dans le flux communaute base de donnees.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 

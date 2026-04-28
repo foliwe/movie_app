@@ -34,6 +34,7 @@ export type GalleryImage = {
 export type Review = {
   id: string;
   slug: string;
+  status?: "Draft" | "Pending" | "Published" | "Hidden";
   author: string;
   username: string;
   location: string;

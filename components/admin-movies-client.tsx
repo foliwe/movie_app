@@ -94,6 +94,7 @@ const copy = {
     previewTrailerPending: "Trailer pending",
     openPublicPage: "Open public page",
     openReviewRoute: "Open review route",
+    draftPrivate: "Drafts stay admin-only until published.",
     draftStatus: "Draft",
     publishedStatus: "Published",
     saving: "Saving...",
@@ -165,6 +166,7 @@ const copy = {
     previewTrailerPending: "Bande-annonce en attente",
     openPublicPage: "Ouvrir la page publique",
     openReviewRoute: "Ouvrir la route critique",
+    draftPrivate: "Les brouillons restent reserves a l'admin jusqu'a publication.",
     draftStatus: "Brouillon",
     publishedStatus: "Publie",
     saving: "Enregistrement...",
@@ -737,12 +739,18 @@ export function AdminMoviesClient({
                         {selectedMovie.languages.length > 0 ? <LanguageBadges languages={selectedMovie.languages} /> : null}
 
                         <div className="admin-preview-actions">
-                          <Link className="detail-action" href={`/movies/${selectedMovie.slug}`}>
-                            {t.openPublicPage}
-                          </Link>
-                          <Link className="detail-action admin-preview-secondary" href={`/write-review/${selectedMovie.slug}`}>
-                            {t.openReviewRoute}
-                          </Link>
+                          {selectedMovie.workflowStatus === "Published" ? (
+                            <>
+                              <Link className="detail-action" href={`/movies/${selectedMovie.slug}`}>
+                                {t.openPublicPage}
+                              </Link>
+                              <Link className="detail-action admin-preview-secondary" href={`/write-review/${selectedMovie.slug}`}>
+                                {t.openReviewRoute}
+                              </Link>
+                            </>
+                          ) : (
+                            <p className="admin-preview-note">{t.draftPrivate}</p>
+                          )}
                         </div>
                       </div>
                     </div>

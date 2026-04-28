@@ -1,3 +1,4 @@
+import { randomBytes, scryptSync } from "crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { genres, languages, movies, people, reviews, userProfiles } from "@/lib/movies";
@@ -7,6 +8,13 @@ const adapter = new PrismaPg({ connectionString: datasourceUrl });
 const prisma = new PrismaClient({
   adapter,
 });
+
+function hashSeedPassword(password: string) {
+  const salt = randomBytes(16).toString("base64url");
+  const hash = scryptSync(password, salt, 64).toString("base64url");
+
+  return `scrypt$${salt}$${hash}`;
+}
 
 async function main() {
   await prisma.review.deleteMany();
@@ -60,17 +68,36 @@ async function main() {
   }
 
   const userIdByUsername = new Map<string, string>();
+  const admin = await prisma.user.create({
+    data: {
+      username: "admin",
+      displayName: "Mboko Admin",
+      email: "admin@example.com",
+      role: "Admin",
+      location: "Admin desk",
+      bio: "Seeded administrator for managing catalogue drafts and moderation.",
+      favoriteLanguages: ["French", "English", "Pidgin"],
+      watchedCount: 0,
+      reviewCount: 0,
+      averageRating: 0,
+      passwordHash: hashSeedPassword("admin1234"),
+    },
+  });
+  userIdByUsername.set(admin.username, admin.id);
+
   for (const profile of userProfiles) {
     const created = await prisma.user.create({
       data: {
         username: profile.username,
         displayName: profile.displayName,
+        email: `${profile.username}@example.com`,
         location: profile.location,
         bio: profile.bio,
         favoriteLanguages: profile.favoriteLanguages,
         watchedCount: profile.watched,
         reviewCount: profile.reviews,
         averageRating: profile.averageRating,
+        passwordHash: hashSeedPassword("password123"),
       },
     });
     userIdByUsername.set(profile.username, created.id);

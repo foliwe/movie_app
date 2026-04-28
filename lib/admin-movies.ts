@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { getCatalogueGenres, getCatalogueLanguages, getCatalogueMovies, getCataloguePeople } from "@/lib/catalog-data";
+import {
+  getAdminCatalogueGenres,
+  getAdminCatalogueLanguages,
+  getAdminCatalogueMovies,
+  getAdminCataloguePeople,
+} from "@/lib/catalog-data";
 import { slugify } from "@/lib/admin-movie-shared";
 import type { CastCredit, CrewCredit, Movie, Person } from "@/lib/movies";
 
@@ -34,10 +39,10 @@ export type AdminMovieInput = Pick<
 
 export async function getAdminMoviesPageData() {
   const [records, people, languages, genres] = await Promise.all([
-    getCatalogueMovies(),
-    getCataloguePeople(),
-    getCatalogueLanguages(),
-    getCatalogueGenres(),
+    getAdminCatalogueMovies(),
+    getAdminCataloguePeople(),
+    getAdminCatalogueLanguages(),
+    getAdminCatalogueGenres(),
   ]);
 
   return {
@@ -102,14 +107,14 @@ export async function createAdminDraft() {
 }
 
 export async function getAdminMovieById(id: string) {
-  const movies = await getCatalogueMovies();
+  const movies = await getAdminCatalogueMovies();
   return movies.find((movie) => movie.id === id) ?? null;
 }
 
 export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?: Movie["workflowStatus"]) {
-  const languages = await getCatalogueLanguages();
-  const genres = await getCatalogueGenres();
-  const people = await getCataloguePeople();
+  const languages = await getAdminCatalogueLanguages();
+  const genres = await getAdminCatalogueGenres();
+  const people = await getAdminCataloguePeople();
 
   const normalized = normalizeMovieInput(input, people);
   validateMovieTaxonomy(normalized, languages, genres);

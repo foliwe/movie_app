@@ -80,6 +80,21 @@ const workflowStatusLabels = {
   },
 } as const;
 
+const reviewStatusLabels = {
+  en: {
+    Draft: "Draft",
+    Pending: "Pending",
+    Published: "Published",
+    Hidden: "Hidden",
+  },
+  fr: {
+    Draft: "Brouillon",
+    Pending: "En attente",
+    Published: "Publiee",
+    Hidden: "Masquee",
+  },
+} as const;
+
 const roleLabels = {
   en: {
     Director: "Director",
@@ -109,6 +124,10 @@ export function getStatusLabel(locale: Locale, status: string) {
 
 export function getWorkflowStatusLabel(locale: Locale, status: string) {
   return workflowStatusLabels[locale][status as keyof (typeof workflowStatusLabels)[Locale]] ?? status;
+}
+
+export function getReviewStatusLabel(locale: Locale, status: string) {
+  return reviewStatusLabels[locale][status as keyof (typeof reviewStatusLabels)[Locale]] ?? status;
 }
 
 export function getRoleLabel(locale: Locale, role: string) {

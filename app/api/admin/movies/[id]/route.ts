@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveAdminMovie, type AdminMovieInput } from "@/lib/admin-movies";
 import { getPublishChecklist } from "@/lib/admin-movie-shared";
+import { getCurrentAdmin, getCurrentUser } from "@/lib/auth";
 
 const publishLabels = {
   title: "Title",
@@ -12,6 +13,18 @@ const publishLabels = {
 };
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return NextResponse.json({ message: "Sign in before using the admin movie desk." }, { status: 401 });
+  }
+
+  const admin = await getCurrentAdmin();
+
+  if (!admin) {
+    return NextResponse.json({ message: "Admin access is required." }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
     const body = (await request.json()) as {

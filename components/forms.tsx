@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Loader2, Save } from "lucide-react";
-import type { Movie } from "@/lib/movies";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle, CheckCircle2, Loader2, Save, Trash2 } from "lucide-react";
+import type { Movie, Review } from "@/lib/movies";
 import { LanguageBadges, RatingPill } from "@/components/site";
 import { type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
@@ -33,7 +34,8 @@ const authCopy = {
     passwordPlaceholder: "At least 8 characters",
     invalidEmail: "Use a valid email address to continue.",
     forgotSuccess: "Reset link prepared for the mock inbox.",
-    authSuccess: "Mock account flow completed.",
+    authSuccess: "Account session is active.",
+    authError: "We could not complete that account request.",
     signIn: "Sign in",
     register: "Register",
     sendReset: "Send reset link",
@@ -52,7 +54,8 @@ const authCopy = {
     passwordPlaceholder: "Au moins 8 caracteres",
     invalidEmail: "Utilisez une adresse email valide pour continuer.",
     forgotSuccess: "Lien de reinitialisation prepare pour la boite mock.",
-    authSuccess: "Flux de compte mock termine.",
+    authSuccess: "La session du compte est active.",
+    authError: "Impossible de terminer cette demande de compte.",
     signIn: "Connexion",
     register: "Inscription",
     sendReset: "Envoyer le lien",
@@ -91,8 +94,10 @@ const reviewCopy = {
     reviewTitlePlaceholder: "What should readers know?",
     reviewBodyPlaceholder: "Write at least a few sentences.",
     invalidReview: "Add a title and at least 20 characters of review text.",
-    reviewSaved: "Review saved locally for the Phase 1 demo.",
-    publish: "Publish mock review",
+    reviewSaved: "Review published to the community feed.",
+    reviewError: "We could not publish that review.",
+    openReview: "Open published review",
+    publish: "Publish review",
   },
   fr: {
     title: "Critique",
@@ -123,24 +128,100 @@ const reviewCopy = {
     reviewTitlePlaceholder: "Que doivent savoir les lecteurs ?",
     reviewBodyPlaceholder: "Ecrivez au moins quelques phrases.",
     invalidReview: "Ajoutez un titre et au moins 20 caracteres de texte.",
-    reviewSaved: "Critique enregistree localement pour la demo Phase 1.",
-    publish: "Publier la critique mock",
+    reviewSaved: "Critique publiee dans le flux communaute.",
+    reviewError: "Impossible de publier cette critique.",
+    openReview: "Ouvrir la critique publiee",
+    publish: "Publier la critique",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+const ownerReviewCopy = {
+  en: {
+    manage: "Manage your review",
+    status: "Moderation status",
+    save: "Save changes",
+    delete: "Delete review",
+    saved: "Review updated.",
+    deleted: "Review deleted.",
+    error: "We could not update that review.",
+    confirmDelete: "Delete this review?",
+  },
+  fr: {
+    manage: "Gerer votre critique",
+    status: "Statut moderation",
+    save: "Enregistrer",
+    delete: "Supprimer",
+    saved: "Critique mise a jour.",
+    deleted: "Critique supprimee.",
+    error: "Impossible de modifier cette critique.",
+    confirmDelete: "Supprimer cette critique ?",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
 export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<FormState>("idle");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
   const { locale } = useLocale();
   const t = authCopy[locale];
+  const nextPath = useMemo(() => {
+    const candidate = searchParams?.get("next");
+    if (!candidate?.startsWith("/") || candidate.startsWith("//")) {
+      return null;
+    }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    return candidate;
+  }, [searchParams]);
+  const loginHref = nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
+  const registerHref = nextPath ? `/register?next=${encodeURIComponent(nextPath)}` : "/register";
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setMessage(null);
     setState("loading");
-    window.setTimeout(() => {
-      setState(email.includes("@") ? "success" : "error");
-    }, 650);
+
+    if (mode === "forgot") {
+      window.setTimeout(() => {
+        setState(email.includes("@") ? "success" : "error");
+      }, 650);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/auth/${mode}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          displayName: name,
+        }),
+      });
+      const payload = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setMessage(payload.message ?? t.authError);
+        setState("error");
+        return;
+      }
+
+      setMessage(t.authSuccess);
+      setState("success");
+      if (nextPath) {
+        window.setTimeout(() => window.location.assign(nextPath), 250);
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setMessage(t.authError);
+      setState("error");
+    }
   }
 
   const title = mode === "login" ? t.loginTitle : mode === "register" ? t.registerTitle : t.forgotTitle;
@@ -162,14 +243,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
       {mode !== "forgot" ? (
         <label>
           {t.password}
-          <input type="password" placeholder={t.passwordPlaceholder} />
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={t.passwordPlaceholder}
+          />
         </label>
       ) : null}
-      {state === "error" ? <p className="form-message error">{t.invalidEmail}</p> : null}
+      {state === "error" ? <p className="form-message error">{message ?? t.invalidEmail}</p> : null}
       {state === "success" ? (
         <p className="form-message success">
           <CheckCircle2 size={18} />
-          {success}
+          {message ?? success}
         </p>
       ) : null}
       <button className="primary-action" type="submit" disabled={state === "loading"}>
@@ -177,19 +263,22 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "forgot" }) {
         {mode === "login" ? t.signIn : mode === "register" ? t.register : t.sendReset}
       </button>
       <div className="form-links">
-        {mode !== "login" ? <Link href="/login">{t.signIn}</Link> : <Link href="/forgot-password">{t.forgotPassword}</Link>}
-        {mode !== "register" ? <Link href="/register">{t.createAccount}</Link> : null}
+        {mode !== "login" ? <Link href={loginHref}>{t.signIn}</Link> : <Link href="/forgot-password">{t.forgotPassword}</Link>}
+        {mode !== "register" ? <Link href={registerHref}>{t.createAccount}</Link> : null}
       </div>
     </form>
   );
 }
 
 export function WriteReviewForm({ movie }: { movie: Movie }) {
+  const router = useRouter();
   const [rating, setRating] = useState(8);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [containsSpoilers, setContainsSpoilers] = useState(false);
   const [state, setState] = useState<FormState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [publishedHref, setPublishedHref] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>("idle");
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const { locale } = useLocale();
@@ -282,12 +371,37 @@ export function WriteReviewForm({ movie }: { movie: Movie }) {
     }, 300);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setState("loading");
+    setErrorMessage(null);
+    setPublishedHref(null);
     setDraftMessage(null);
-    window.setTimeout(() => {
-      if (!isValid) {
+
+    if (!isValid) {
+      setErrorMessage(t.invalidReview);
+      setState("error");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          movieSlug: movie.slug,
+          rating,
+          title,
+          body,
+          containsSpoilers,
+        }),
+      });
+      const payload = (await response.json()) as { message?: string; href?: string };
+
+      if (!response.ok) {
+        setErrorMessage(payload.message ?? t.reviewError);
         setState("error");
         return;
       }
@@ -299,8 +413,13 @@ export function WriteReviewForm({ movie }: { movie: Movie }) {
       setBody("");
       setContainsSpoilers(false);
       setDraftStatus("idle");
+      setPublishedHref(payload.href ?? null);
       setState("success");
-    }, 700);
+      router.refresh();
+    } catch {
+      setErrorMessage(t.reviewError);
+      setState("error");
+    }
   }
 
   return (
@@ -365,12 +484,17 @@ export function WriteReviewForm({ movie }: { movie: Movie }) {
           {draftMessage}
         </p>
       ) : null}
-      {state === "error" ? <p className="form-message error">{t.invalidReview}</p> : null}
+      {state === "error" ? <p className="form-message error">{errorMessage ?? t.invalidReview}</p> : null}
       {state === "success" ? (
         <p className="form-message success">
           <CheckCircle2 size={18} />
           {t.reviewSaved}
         </p>
+      ) : null}
+      {publishedHref ? (
+        <div className="form-links">
+          <Link href={publishedHref}>{t.openReview}</Link>
+        </div>
       ) : null}
       <div className="review-form-actions">
         <button className="secondary-action review-secondary-action" type="button" onClick={persistDraft} disabled={state === "loading"}>
@@ -404,6 +528,152 @@ export function WriteReviewForm({ movie }: { movie: Movie }) {
           <LanguageBadges languages={movie.languages.slice(0, 3)} />
         </div>
       </section>
+    </form>
+  );
+}
+
+export function ReviewOwnerTools({
+  review,
+  canModerate,
+}: {
+  review: Review;
+  canModerate: boolean;
+}) {
+  const router = useRouter();
+  const { locale } = useLocale();
+  const t = ownerReviewCopy[locale];
+  const [rating, setRating] = useState(review.rating);
+  const [title, setTitle] = useState(review.title);
+  const [body, setBody] = useState(review.body);
+  const [status, setStatus] = useState(review.status ?? "Published");
+  const [state, setState] = useState<FormState>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setState("loading");
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/reviews/${review.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rating,
+          title,
+          body,
+          status,
+        }),
+      });
+      const payload = (await response.json()) as { message?: string; href?: string };
+
+      if (!response.ok) {
+        setMessage(payload.message ?? t.error);
+        setState("error");
+        return;
+      }
+
+      setMessage(t.saved);
+      setState("success");
+      router.refresh();
+      if (payload.href && payload.href !== `/reviews/${review.slug}`) {
+        router.push(payload.href);
+      }
+    } catch {
+      setMessage(t.error);
+      setState("error");
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(t.confirmDelete)) {
+      return;
+    }
+
+    setState("loading");
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/reviews/${review.id}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json()) as { message?: string; href?: string };
+
+      if (!response.ok) {
+        setMessage(payload.message ?? t.error);
+        setState("error");
+        return;
+      }
+
+      setMessage(t.deleted);
+      setState("success");
+      router.push(payload.href ?? "/reviews");
+      router.refresh();
+    } catch {
+      setMessage(t.error);
+      setState("error");
+    }
+  }
+
+  return (
+    <form className="auth-form review-owner-form" onSubmit={handleSave}>
+      <h2>{t.manage}</h2>
+      <label>
+        {reviewCopy[locale].rating}
+        <span className="range-field">
+          <input
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            value={rating}
+            onChange={(event) => setRating(Number(event.target.value))}
+          />
+          <strong>{rating}/10</strong>
+        </span>
+      </label>
+      <label>
+        {reviewCopy[locale].reviewTitle}
+        <input value={title} onChange={(event) => setTitle(event.target.value)} />
+      </label>
+      <label>
+        {reviewCopy[locale].reviewBody}
+        <textarea value={body} onChange={(event) => setBody(event.target.value)} />
+      </label>
+      {canModerate ? (
+        <label>
+          {t.status}
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as NonNullable<Review["status"]>)}
+          >
+            {(["Draft", "Pending", "Published", "Hidden"] as NonNullable<Review["status"]>[]).map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {state === "error" && message ? <p className="form-message error">{message}</p> : null}
+      {state === "success" && message ? (
+        <p className="form-message success">
+          <CheckCircle2 size={18} />
+          {message}
+        </p>
+      ) : null}
+      <div className="review-form-actions">
+        <button className="primary-action" type="submit" disabled={state === "loading"}>
+          {state === "loading" ? <Loader2 className="spin" size={18} /> : null}
+          {t.save}
+        </button>
+        <button className="secondary-action review-secondary-action" type="button" onClick={handleDelete} disabled={state === "loading"}>
+          <Trash2 size={18} />
+          {t.delete}
+        </button>
+      </div>
     </form>
   );
 }

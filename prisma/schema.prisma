@@ -26,6 +26,18 @@ enum MovieStatus {
   Classic
 }
 
+enum UserRole {
+  Member
+  Admin
+}
+
+enum ReviewStatus {
+  Draft
+  Pending
+  Published
+  Hidden
+}
+
 model Movie {
   id                   String         @id
   slug                 String         @unique
@@ -56,6 +68,8 @@ model Movie {
   genres               MovieGenre[]
   languages            MovieLanguage[]
   reviews              Review[]
+
+  @@index([workflowStatus, sortOrder])
 }
 
 model Language {
@@ -150,6 +164,7 @@ model User {
   username          String   @unique
   displayName       String
   email             String?  @unique
+  role              UserRole @default(Member)
   location          String
   bio               String
   favoriteLanguages String[]
@@ -160,6 +175,20 @@ model User {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   reviewsAuthored   Review[]
+  sessions          Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Review {
@@ -167,6 +196,7 @@ model Review {
   slug        String   @unique
   authorId    String
   movieId     String
+  status      ReviewStatus @default(Published)
   location    String
   rating      Int
   title       String
@@ -180,5 +210,7 @@ model Review {
 
   @@index([movieId])
   @@index([authorId])
+  @@unique([authorId, movieId])
+  @@index([status, publishedAt])
   @@index([publishedAt])
 }

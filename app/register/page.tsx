@@ -9,12 +9,12 @@ const copy = {
   en: {
     eyebrow: "Account",
     title: "Join Mboko Reels",
-    body: "Create a local demo profile before persistent auth is wired in Phase 2.",
+    body: "Create a real profile with a persistent session for writing reviews.",
   },
   fr: {
     eyebrow: "Compte",
     title: "Rejoindre Mboko Reels",
-    body: "Creez un profil de demo locale avant l'integration auth de la Phase 2.",
+    body: "Creez un vrai profil avec une session persistante pour ecrire des critiques.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
