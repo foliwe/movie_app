@@ -26,6 +26,11 @@ enum MovieStatus {
   Classic
 }
 
+enum TrailerSourceType {
+  External
+  Cloudinary
+}
+
 enum UserRole {
   Member
   Admin
@@ -53,12 +58,17 @@ model Movie {
   averageRating        Float
   communityReviewCount Int
   trend                String
+  editorPick           Boolean        @default(false)
   palette              Palette
   workflowStatus       WorkflowStatus
   status               MovieStatus
   posterUrl            String
+  posterPublicId       String?
   backdropUrl          String
+  backdropPublicId     String?
   trailerUrl           String
+  trailerPublicId      String?
+  trailerSourceType    TrailerSourceType @default(External)
   trailerEmbedUrl      String?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
@@ -112,6 +122,7 @@ model GalleryImage {
   id        String @id @default(cuid())
   movieId    String
   src        String
+  publicId   String?
   alt        String
   sortOrder  Int
   movie      Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)

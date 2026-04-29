@@ -10,6 +10,8 @@ const publishLabels = {
   synopsis: "Synopsis",
   languages: "Languages",
   genres: "Genres",
+  posterUrl: "Poster",
+  backdropUrl: "Backdrop",
 };
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

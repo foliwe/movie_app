@@ -120,12 +120,17 @@ async function main() {
         averageRating: movie.rating,
         communityReviewCount: movie.reviews,
         trend: movie.trend,
+        editorPick: movie.editorPick,
         palette: movie.palette,
         workflowStatus: movie.workflowStatus,
         status: movie.status,
         posterUrl: movie.posterUrl,
+        posterPublicId: movie.posterPublicId,
         backdropUrl: movie.backdropUrl,
+        backdropPublicId: movie.backdropPublicId,
         trailerUrl: movie.trailerUrl,
+        trailerPublicId: movie.trailerPublicId,
+        trailerSourceType: movie.trailerSourceType,
         trailerEmbedUrl: movie.trailerEmbedUrl,
         languages: {
           create: movie.languages.map((language, languageIndex) => ({
@@ -150,6 +155,7 @@ async function main() {
         galleryImages: {
           create: movie.galleryImages.map((image, imageIndex) => ({
             src: image.src,
+            publicId: image.publicId,
             alt: image.alt,
             sortOrder: imageIndex,
           })),

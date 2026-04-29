@@ -1,0 +1,2 @@
+ALTER TABLE "Movie"
+ADD COLUMN "editorPick" BOOLEAN NOT NULL DEFAULT false;

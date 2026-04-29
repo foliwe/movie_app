@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Languages, Search, Star, UserCircle } from "lucide-react";
 import clsx from "clsx";
+import { CldImage } from "next-cloudinary";
 import type { Movie, Person, Review } from "@/lib/movies";
+import { getCloudinaryImageProps, type CloudinaryImageVariant } from "@/lib/cloudinary-media";
 import {
   formatLanguageList,
   getGenreLabel,
@@ -140,19 +142,73 @@ export function SiteHeader() {
   );
 }
 
+type MovieArtworkProps = {
+  movie: Pick<Movie, "title" | "palette" | "posterPublicId" | "posterUrl">;
+  className: string;
+  titleClassName?: string;
+  variant?: CloudinaryImageVariant;
+  useImage?: boolean;
+  hideTitleWhenImage?: boolean;
+};
+
+export function MovieArtwork({
+  movie,
+  className,
+  titleClassName,
+  variant,
+  useImage = true,
+  hideTitleWhenImage = false,
+}: MovieArtworkProps) {
+  const imageProps = variant ? getCloudinaryImageProps(variant) : null;
+  const hasImage = Boolean(useImage && imageProps && (movie.posterPublicId || movie.posterUrl));
+
+  return (
+    <div className={clsx(className, `poster-${movie.palette}`)}>
+      {useImage && movie.posterPublicId && imageProps ? (
+        <CldImage
+          alt={`${movie.title} poster`}
+          src={movie.posterPublicId}
+          className="cloudinary-media"
+          {...imageProps}
+        />
+      ) : useImage && movie.posterUrl && imageProps ? (
+        <Image
+          alt={`${movie.title} poster`}
+          src={movie.posterUrl}
+          fill
+          sizes={imageProps.sizes}
+          className="cloudinary-media"
+        />
+      ) : null}
+      {!hideTitleWhenImage || !hasImage ? <strong className={titleClassName}>{movie.title}</strong> : null}
+    </div>
+  );
+}
+
 export function PosterBlock({
   movie,
   className,
   titleClassName,
+  variant,
+  useImage = true,
+  hideTitleWhenImage = false,
 }: {
-  movie: Pick<Movie, "title" | "palette">;
+  movie: Pick<Movie, "title" | "palette" | "posterPublicId" | "posterUrl">;
   className: string;
   titleClassName?: string;
+  variant?: CloudinaryImageVariant;
+  useImage?: boolean;
+  hideTitleWhenImage?: boolean;
 }) {
   return (
-    <div className={clsx(className, `poster-${movie.palette}`)}>
-      <strong className={titleClassName}>{movie.title}</strong>
-    </div>
+    <MovieArtwork
+      movie={movie}
+      className={className}
+      titleClassName={titleClassName}
+      variant={variant}
+      useImage={useImage}
+      hideTitleWhenImage={hideTitleWhenImage}
+    />
   );
 }
 
@@ -227,7 +283,7 @@ export function MovieRow({
 
   const content = (
     <>
-      <PosterBlock movie={movie} className="catalogue-poster" />
+      <PosterBlock movie={movie} className="catalogue-poster" variant="posterCard" />
       <div className="catalogue-copy">
         <h3>{movie.title}</h3>
         <p>{movie.synopsis}</p>
@@ -252,12 +308,22 @@ export function MovieRow({
   );
 }
 
-export function FreshReviewListItem({ review }: { review: Review }) {
+export function FreshReviewListItem({
+  review,
+  movie,
+}: {
+  review: Review;
+  movie?: Pick<Movie, "title" | "palette" | "posterPublicId" | "posterUrl">;
+}) {
   return (
     <article className="review-card fresh-review-item">
-      <div className="review-thumb poster-teal">
-        <strong>{review.movieTitle.split(" ")[0]}</strong>
-      </div>
+      {movie ? (
+        <MovieArtwork movie={movie} className="review-thumb" variant="posterReviewThumb" hideTitleWhenImage />
+      ) : (
+        <div className="review-thumb poster-teal">
+          <strong>{review.movieTitle.split(" ")[0]}</strong>
+        </div>
+      )}
       <div>
         <Link href={`/reviews/${review.slug}`}>
           <h3>{review.movieTitle}</h3>

@@ -7,6 +7,7 @@ import {
   getAdminCataloguePeople,
 } from "@/lib/catalog-data";
 import { slugify } from "@/lib/admin-movie-shared";
+import { deleteCloudinaryAsset } from "@/lib/cloudinary";
 import type { CastCredit, CrewCredit, Movie, Person } from "@/lib/movies";
 
 const adminMovieInclude = {
@@ -68,15 +69,21 @@ function mapAdminMovie(record: AdminMovieRecord): Movie {
     rating: record.averageRating,
     reviews: record.communityReviewCount,
     trend: record.trend,
+    editorPick: record.editorPick,
     palette: record.palette,
     workflowStatus: record.workflowStatus,
     status: record.status,
     posterUrl: record.posterUrl,
+    posterPublicId: record.posterPublicId ?? undefined,
     backdropUrl: record.backdropUrl,
+    backdropPublicId: record.backdropPublicId ?? undefined,
     trailerUrl: record.trailerUrl,
+    trailerPublicId: record.trailerPublicId ?? undefined,
+    trailerSourceType: record.trailerSourceType,
     trailerEmbedUrl: record.trailerEmbedUrl ?? undefined,
     galleryImages: record.galleryImages.map((image) => ({
       src: image.src,
+      publicId: image.publicId ?? undefined,
       alt: image.alt,
     })),
     cast: record.castCredits.map((credit) => ({
@@ -110,13 +117,19 @@ export type AdminMovieInput = Pick<
   | "genres"
   | "languages"
   | "synopsis"
+  | "editorPick"
   | "palette"
   | "workflowStatus"
   | "status"
   | "posterUrl"
+  | "posterPublicId"
   | "backdropUrl"
+  | "backdropPublicId"
   | "trailerUrl"
+  | "trailerPublicId"
+  | "trailerSourceType"
   | "trailerEmbedUrl"
+  | "galleryImages"
   | "cast"
   | "crew"
 > & {
@@ -180,12 +193,17 @@ export async function createAdminDraft() {
         averageRating: 0,
         communityReviewCount: 0,
         trend: "New draft",
+        editorPick: false,
         palette: "amber",
         workflowStatus: "Draft",
         status: "Published",
         posterUrl: "/assets/homepage-concept.png",
+        posterPublicId: null,
         backdropUrl: "/assets/cameroon-cinema-backdrop.png",
+        backdropPublicId: null,
         trailerUrl: "",
+        trailerPublicId: null,
+        trailerSourceType: "External",
         trailerEmbedUrl: "",
       },
     });
@@ -210,17 +228,28 @@ export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?
 
   const normalized = normalizeMovieInput(input, people);
   validateMovieTaxonomy(normalized, languages, genres);
+  validateMovieMedia(normalized);
+
+  const previousMovie = await prisma.movie.findUnique({
+    where: { id: normalized.id },
+    include: {
+      galleryImages: true,
+    },
+  });
+
+  if (!previousMovie) {
+    throw new Error("Movie record was not found.");
+  }
+
+  const effectiveWorkflowStatus = nextWorkflowStatus ?? normalized.workflowStatus;
+  const normalizedRating = normalized.rating ?? 0;
+  const shouldDefaultPublishedRating =
+    effectiveWorkflowStatus === "Published" &&
+    previousMovie.workflowStatus !== "Published" &&
+    normalizedRating <= 0;
+  const effectiveRating = shouldDefaultPublishedRating ? 1 : normalizedRating;
 
   await prisma.$transaction(async (tx) => {
-    const existing = await tx.movie.findUnique({
-      where: { id: normalized.id },
-      select: { id: true },
-    });
-
-    if (!existing) {
-      throw new Error("Movie record was not found.");
-    }
-
     const languageRows = await tx.language.findMany({
       where: {
         name: {
@@ -349,15 +378,29 @@ export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?
         director: normalized.director,
         synopsis: normalized.synopsis,
         trend: normalized.trend,
-        averageRating: normalized.rating,
+        averageRating: effectiveRating,
         communityReviewCount: normalized.reviews,
         palette: normalized.palette,
-        workflowStatus: nextWorkflowStatus ?? normalized.workflowStatus,
+        editorPick: normalized.editorPick,
+        workflowStatus: effectiveWorkflowStatus,
         status: normalized.status,
         posterUrl: normalized.posterUrl,
+        posterPublicId: normalized.posterPublicId || null,
         backdropUrl: normalized.backdropUrl,
+        backdropPublicId: normalized.backdropPublicId || null,
         trailerUrl: normalized.trailerUrl,
+        trailerPublicId: normalized.trailerPublicId || null,
+        trailerSourceType: normalized.trailerSourceType,
         trailerEmbedUrl: normalized.trailerEmbedUrl || null,
+        galleryImages: {
+          deleteMany: {},
+          create: normalized.galleryImages.map((image, index) => ({
+            src: image.src,
+            publicId: image.publicId || null,
+            alt: image.alt,
+            sortOrder: index,
+          })),
+        },
         languages: {
           deleteMany: {},
           create: normalized.languages.map((language, index) => ({
@@ -410,13 +453,15 @@ export async function saveAdminMovie(input: AdminMovieInput, nextWorkflowStatus?
     });
   });
 
+  await cleanupReplacedAssets(previousMovie, normalized);
+
   return getAdminMovieById(normalized.id);
 }
 
 function normalizeMovieInput(input: AdminMovieInput, people: Person[]): AdminMovieInput {
   const peopleBySlug = new Map(people.map((person) => [person.slug, person]));
 
-  return {
+  const normalized: AdminMovieInput = {
     ...input,
     slug: slugify(input.slug || input.title),
     title: input.title.trim(),
@@ -425,10 +470,16 @@ function normalizeMovieInput(input: AdminMovieInput, people: Person[]): AdminMov
     director: input.director.trim(),
     synopsis: input.synopsis.trim(),
     trailerUrl: input.trailerUrl.trim(),
+    trailerPublicId: (input.trailerPublicId ?? "").trim() || undefined,
+    trailerSourceType: input.trailerSourceType,
     trailerEmbedUrl: (input.trailerEmbedUrl ?? "").trim(),
     posterUrl: input.posterUrl.trim(),
+    posterPublicId: (input.posterPublicId ?? "").trim() || undefined,
     backdropUrl: input.backdropUrl.trim(),
+    backdropPublicId: (input.backdropPublicId ?? "").trim() || undefined,
+    galleryImages: normalizeGalleryImages(input.galleryImages),
     trend: (input.trend ?? "").trim() || "Updated in admin",
+    editorPick: Boolean(input.editorPick),
     rating: input.rating ?? 0,
     reviews: input.reviews ?? 0,
     releaseYear: Number.isFinite(input.releaseYear) ? input.releaseYear : new Date().getFullYear(),
@@ -438,6 +489,24 @@ function normalizeMovieInput(input: AdminMovieInput, people: Person[]): AdminMov
     cast: normalizeCastCredits(input.cast, peopleBySlug),
     crew: normalizeCrewCredits(input.crew, peopleBySlug),
   };
+
+  if (normalized.trailerSourceType === "Cloudinary") {
+    normalized.trailerEmbedUrl = "";
+  } else {
+    normalized.trailerPublicId = undefined;
+  }
+
+  return normalized;
+}
+
+function normalizeGalleryImages(images: Movie["galleryImages"]) {
+  return images
+    .map((image) => ({
+      src: image.src.trim(),
+      publicId: image.publicId?.trim() || undefined,
+      alt: image.alt.trim(),
+    }))
+    .filter((image) => image.src.length > 0);
 }
 
 function normalizeCastCredits(credits: CastCredit[], peopleBySlug: Map<string, Person>) {
@@ -489,6 +558,22 @@ function validateMovieTaxonomy(movie: AdminMovieInput, languages: string[], genr
   }
 }
 
+function validateMovieMedia(movie: AdminMovieInput) {
+  if (movie.trailerSourceType === "Cloudinary") {
+    if (movie.trailerUrl.length === 0 || !movie.trailerPublicId) {
+      throw new Error("Cloudinary trailers require both a video URL and Cloudinary public ID.");
+    }
+  } else if (movie.trailerUrl.length === 0 && (movie.trailerEmbedUrl ?? "").length > 0) {
+    throw new Error("External trailer embeds also require a trailer URL.");
+  }
+
+  for (const image of movie.galleryImages) {
+    if (image.alt.length === 0) {
+      throw new Error("Each gallery image must include alt text.");
+    }
+  }
+}
+
 function uniqueTrimmed(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)));
 }
@@ -518,4 +603,45 @@ function createUniqueSlug(value: string, existingSlugs: string[]) {
   }
 
   return `${base}-${suffix}`;
+}
+
+async function cleanupReplacedAssets(
+  previousMovie: Prisma.MovieGetPayload<{ include: { galleryImages: true } }>,
+  nextMovie: AdminMovieInput,
+) {
+  const deletions: Array<Promise<void>> = [];
+
+  if (previousMovie.posterPublicId && previousMovie.posterPublicId !== nextMovie.posterPublicId) {
+    deletions.push(deleteCloudinaryAsset(previousMovie.posterPublicId, "image"));
+  }
+
+  if (previousMovie.backdropPublicId && previousMovie.backdropPublicId !== nextMovie.backdropPublicId) {
+    deletions.push(deleteCloudinaryAsset(previousMovie.backdropPublicId, "image"));
+  }
+
+  if (previousMovie.trailerPublicId && previousMovie.trailerPublicId !== nextMovie.trailerPublicId) {
+    deletions.push(deleteCloudinaryAsset(previousMovie.trailerPublicId, "video"));
+  }
+
+  const nextGalleryPublicIds = new Set(
+    nextMovie.galleryImages.map((image) => image.publicId).filter((publicId): publicId is string => Boolean(publicId)),
+  );
+
+  for (const image of previousMovie.galleryImages) {
+    if (image.publicId && !nextGalleryPublicIds.has(image.publicId)) {
+      deletions.push(deleteCloudinaryAsset(image.publicId, "image"));
+    }
+  }
+
+  if (deletions.length === 0) {
+    return;
+  }
+
+  const results = await Promise.allSettled(deletions);
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("Failed to delete replaced Cloudinary asset", result.reason);
+    }
+  }
 }

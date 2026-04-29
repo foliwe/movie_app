@@ -1,11 +1,13 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clapperboard, Loader2, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, CheckCircle2, Clapperboard, ImagePlus, Loader2, Plus, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
-import { LanguageBadges, MovieMeta, PageHero, PosterBlock, SiteHeader } from "@/components/site";
+import { CldUploadWidget } from "next-cloudinary";
+import { LanguageBadges, MovieArtwork, MovieMeta, PageHero, PosterBlock, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
+import { getCloudinaryUploadFolder } from "@/lib/cloudinary-media";
 import {
   getGenreLabel,
   getLanguageLabel,
@@ -22,6 +24,13 @@ type Feedback = {
   tone: "success" | "error";
   message: string;
 } | null;
+
+type UploadedCloudinaryAsset = {
+  secure_url: string;
+  public_id: string;
+  resource_type: "image" | "video";
+  original_filename?: string;
+};
 
 const workflowOptions: Movie["workflowStatus"][] = ["Draft", "Published"];
 const badgeOptions: Movie["status"][] = ["Published", "Festival", "Classic"];
@@ -63,11 +72,30 @@ const copy = {
     runtimeLabel: "Runtime (minutes)",
     synopsisLabel: "Synopsis",
     taxonomy: "Languages and genres",
-    media: "Media links",
+    media: "Media library",
     posterUrlLabel: "Poster URL",
     backdropUrlLabel: "Backdrop URL",
     trailerUrlLabel: "Trailer URL",
+    trailerEmbedUrlLabel: "Trailer embed URL",
+    trailerSourceLabel: "Trailer source",
+    trailerSourceExternal: "External",
+    trailerSourceCloudinary: "Cloudinary video",
+    posterUpload: "Upload poster",
+    backdropUpload: "Upload backdrop",
+    gallery: "Gallery",
+    galleryUpload: "Upload gallery images",
+    galleryEmpty: "No gallery images uploaded yet.",
+    galleryAltLabel: "Alt text",
+    moveUp: "Move up",
+    moveDown: "Move down",
+    trailerUpload: "Upload trailer",
+    cloudinaryPublicIdLabel: "Cloudinary public ID",
+    removeAsset: "Remove",
+    mediaConfigMissing: "Set the Cloudinary env vars to enable signed uploads in this admin desk.",
     publicBadge: "Public badge",
+    editorPickLabel: "Editor pick",
+    editorPickEnabled: "Featured in editor picks",
+    editorPickDisabled: "Not featured",
     palette: "Palette",
     cast: "Cast",
     crew: "Crew",
@@ -81,6 +109,7 @@ const copy = {
     remove: "Remove",
     saveDraft: "Save as draft",
     publishNow: "Publish record",
+    mediaAutoSaveSuccess: "Media saved automatically.",
     saveSuccess: "Draft saved to the database.",
     publishSuccess: "Record published to the database.",
     createSuccess: "Draft created in the database.",
@@ -135,11 +164,30 @@ const copy = {
     runtimeLabel: "Duree (minutes)",
     synopsisLabel: "Synopsis",
     taxonomy: "Langues et genres",
-    media: "Liens media",
+    media: "Bibliotheque media",
     posterUrlLabel: "URL poster",
     backdropUrlLabel: "URL backdrop",
     trailerUrlLabel: "URL bande-annonce",
+    trailerEmbedUrlLabel: "URL embed bande-annonce",
+    trailerSourceLabel: "Source bande-annonce",
+    trailerSourceExternal: "Externe",
+    trailerSourceCloudinary: "Video Cloudinary",
+    posterUpload: "Televerser poster",
+    backdropUpload: "Televerser backdrop",
+    gallery: "Galerie",
+    galleryUpload: "Televerser images galerie",
+    galleryEmpty: "Aucune image galerie pour le moment.",
+    galleryAltLabel: "Texte alternatif",
+    moveUp: "Monter",
+    moveDown: "Descendre",
+    trailerUpload: "Televerser bande-annonce",
+    cloudinaryPublicIdLabel: "ID public Cloudinary",
+    removeAsset: "Supprimer",
+    mediaConfigMissing: "Ajoutez les variables Cloudinary pour activer les televersements signes dans ce bureau admin.",
     publicBadge: "Badge public",
+    editorPickLabel: "Choix redaction",
+    editorPickEnabled: "Mis en avant par la redaction",
+    editorPickDisabled: "Non mis en avant",
     palette: "Palette",
     cast: "Distribution",
     crew: "Equipe",
@@ -153,6 +201,7 @@ const copy = {
     remove: "Supprimer",
     saveDraft: "Enregistrer en brouillon",
     publishNow: "Publier la fiche",
+    mediaAutoSaveSuccess: "Les medias ont ete enregistres automatiquement.",
     saveSuccess: "Brouillon enregistre dans la base.",
     publishSuccess: "Fiche publiee dans la base.",
     createSuccess: "Brouillon cree dans la base.",
@@ -179,11 +228,17 @@ export function AdminMoviesClient({
   people,
   languageOptions,
   genreOptions,
+  cloudinaryCloudName,
+  cloudinaryApiKey,
+  cloudinaryUploadPreset,
 }: {
   initialRecords: Movie[];
   people: Person[];
   languageOptions: string[];
   genreOptions: string[];
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  cloudinaryUploadPreset: string;
 }) {
   const { locale } = useLocale();
   const t = copy[locale];
@@ -194,6 +249,8 @@ export function AdminMoviesClient({
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const cloudinaryEnabled =
+    cloudinaryUploadPreset.trim().length > 0 && cloudinaryCloudName.trim().length > 0 && cloudinaryApiKey.trim().length > 0;
 
   const selectedMovie = records.find((movie) => movie.id === selectedId) ?? null;
   const normalizedQuery = query.trim().toLowerCase();
@@ -240,6 +297,8 @@ export function AdminMoviesClient({
         synopsis: t.synopsisLabel,
         languages: t.languages,
         genres: t.taxonomy,
+        posterUrl: t.posterUrlLabel,
+        backdropUrl: t.backdropUrlLabel,
       })
     : [];
 
@@ -260,7 +319,7 @@ export function AdminMoviesClient({
     setFeedback(null);
   }
 
-  function replaceMovieRecord(nextMovie: Movie) {
+  function replaceMovieRecord(nextMovie: Movie, options?: { select?: boolean }) {
     setRecords((current) => {
       const exists = current.some((movie) => movie.id === nextMovie.id);
       if (!exists) {
@@ -269,7 +328,9 @@ export function AdminMoviesClient({
 
       return current.map((movie) => (movie.id === nextMovie.id ? nextMovie : movie));
     });
-    setSelectedId(nextMovie.id);
+    if (options?.select) {
+      setSelectedId(nextMovie.id);
+    }
   }
 
   function updateField<K extends keyof Movie>(field: K, value: Movie[K]) {
@@ -385,6 +446,180 @@ export function AdminMoviesClient({
     }));
   }
 
+  function buildMovieWithUploadedAssets(
+    movie: Movie,
+    kind: "poster" | "backdrop" | "gallery" | "trailer",
+    assets: UploadedCloudinaryAsset[],
+  ): Movie {
+    if (assets.length === 0) {
+      return movie;
+    }
+
+    if (kind === "gallery") {
+      const nextMovie: Movie = {
+        ...movie,
+        galleryImages: [
+          ...movie.galleryImages,
+          ...assets.map((asset, index) => ({
+            src: asset.secure_url,
+            publicId: asset.public_id,
+            alt: makeGalleryAltText(movie.title, asset.original_filename, movie.galleryImages.length + index + 1),
+          })),
+        ],
+      };
+
+      return nextMovie;
+    }
+
+    const asset = assets[assets.length - 1];
+
+    if (kind === "trailer") {
+      const nextMovie: Movie = {
+        ...movie,
+        trailerUrl: asset.secure_url,
+        trailerPublicId: asset.public_id,
+        trailerSourceType: "Cloudinary" as const,
+        trailerEmbedUrl: "",
+      };
+
+      return nextMovie;
+    }
+
+    if (kind === "poster") {
+      const nextMovie: Movie = {
+        ...movie,
+        posterUrl: asset.secure_url,
+        posterPublicId: asset.public_id,
+      };
+
+      return nextMovie;
+    }
+
+    const nextMovie: Movie = {
+      ...movie,
+      backdropUrl: asset.secure_url,
+      backdropPublicId: asset.public_id,
+    };
+
+    return nextMovie;
+  }
+
+  function handleUploadedAssets(
+    movieId: string,
+    kind: "poster" | "backdrop" | "gallery" | "trailer",
+    assets: UploadedCloudinaryAsset[],
+  ) {
+    if (assets.length === 0) {
+      return;
+    }
+
+    let nextMovie: Movie | undefined;
+
+    setRecords((current) =>
+      current.map((movie) => {
+        if (movie.id !== movieId) {
+          return movie;
+        }
+
+        const updatedMovie = buildMovieWithUploadedAssets(movie, kind, assets);
+        nextMovie = updatedMovie;
+        return updatedMovie;
+      }),
+    );
+
+    const movieToPersist = nextMovie;
+    if (!movieToPersist) {
+      return;
+    }
+
+    void persistMovie(movieToPersist.workflowStatus === "Published" ? "publish" : "draft", {
+      movie: movieToPersist,
+      successMessage: t.mediaAutoSaveSuccess,
+    });
+  }
+
+  function removeMedia(kind: "poster" | "backdrop" | "trailer") {
+    if (!selectedMovie) {
+      return;
+    }
+
+    updateSelectedMovie((movie) => {
+      if (kind === "poster") {
+        return {
+          ...movie,
+          posterUrl: "",
+          posterPublicId: undefined,
+        };
+      }
+
+      if (kind === "backdrop") {
+        return {
+          ...movie,
+          backdropUrl: "",
+          backdropPublicId: undefined,
+        };
+      }
+
+      return {
+        ...movie,
+        trailerUrl: "",
+        trailerPublicId: undefined,
+        trailerEmbedUrl: "",
+      };
+    });
+  }
+
+  function updateGalleryImage(index: number, key: "alt", value: string) {
+    if (!selectedMovie) {
+      return;
+    }
+
+    updateSelectedMovie((movie) => ({
+      ...movie,
+      galleryImages: movie.galleryImages.map((image, imageIndex) =>
+        imageIndex === index
+          ? {
+              ...image,
+              [key]: value,
+            }
+          : image,
+      ),
+    }));
+  }
+
+  function moveGalleryImage(index: number, direction: -1 | 1) {
+    if (!selectedMovie) {
+      return;
+    }
+
+    updateSelectedMovie((movie) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= movie.galleryImages.length) {
+        return movie;
+      }
+
+      const nextImages = [...movie.galleryImages];
+      const [image] = nextImages.splice(index, 1);
+      nextImages.splice(targetIndex, 0, image);
+
+      return {
+        ...movie,
+        galleryImages: nextImages,
+      };
+    });
+  }
+
+  function removeGalleryImage(index: number) {
+    if (!selectedMovie) {
+      return;
+    }
+
+    updateSelectedMovie((movie) => ({
+      ...movie,
+      galleryImages: movie.galleryImages.filter((_, imageIndex) => imageIndex !== index),
+    }));
+  }
+
   async function createDraft() {
     setIsSubmitting(true);
 
@@ -398,7 +633,7 @@ export function AdminMoviesClient({
         throw new Error(payload.message ?? "Failed to create draft.");
       }
 
-      replaceMovieRecord(payload as Movie);
+      replaceMovieRecord(payload as Movie, { select: true });
       setWorkflowFilter("All");
       setFeedback({
         tone: "success",
@@ -414,22 +649,29 @@ export function AdminMoviesClient({
     }
   }
 
-  async function persistMovie(mode: "draft" | "publish") {
-    if (!selectedMovie) {
+  async function persistMovie(
+    mode: "draft" | "publish",
+    options?: {
+      movie?: Movie | null;
+      successMessage?: string;
+    },
+  ) {
+    const movieToPersist = options?.movie ?? selectedMovie;
+    if (!movieToPersist) {
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/admin/movies/${selectedMovie.id}`, {
+      const response = await fetch(`/api/admin/movies/${movieToPersist.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           mode,
-          movie: selectedMovie,
+          movie: movieToPersist,
         }),
       });
 
@@ -441,7 +683,7 @@ export function AdminMoviesClient({
       replaceMovieRecord(payload as Movie);
       setFeedback({
         tone: "success",
-        message: mode === "publish" ? t.publishSuccess : t.saveSuccess,
+        message: options?.successMessage ?? (mode === "publish" ? t.publishSuccess : t.saveSuccess),
       });
     } catch (error) {
       setFeedback({
@@ -510,7 +752,7 @@ export function AdminMoviesClient({
                   className={clsx("admin-movie-card", selectedId === movie.id && "is-selected")}
                   onClick={() => setSelectedId(movie.id)}
                 >
-                  <div className={`admin-palette poster-${movie.palette}`} />
+                  <MovieArtwork movie={movie} className="admin-palette" variant="posterSidebar" hideTitleWhenImage />
                   <div className="admin-movie-copy">
                     <div className="admin-movie-topline">
                       <strong>{movie.title || t.untitled}</strong>
@@ -693,6 +935,16 @@ export function AdminMoviesClient({
                         ))}
                       </select>
                     </Field>
+                    <Field label={t.editorPickLabel}>
+                      <button
+                        type="button"
+                        className={clsx("admin-toggle-chip", selectedMovie.editorPick && "is-active")}
+                        aria-pressed={selectedMovie.editorPick}
+                        onClick={() => updateField("editorPick", !selectedMovie.editorPick)}
+                      >
+                        {selectedMovie.editorPick ? t.editorPickEnabled : t.editorPickDisabled}
+                      </button>
+                    </Field>
                     <Field label={t.palette}>
                       <select
                         value={selectedMovie.palette}
@@ -714,19 +966,207 @@ export function AdminMoviesClient({
                     <span>{selectedMovie.slug}</span>
                   </div>
 
-                  <div className="admin-form-grid">
-                    <Field label={t.posterUrlLabel}>
-                      <input value={selectedMovie.posterUrl} onChange={(event) => updateField("posterUrl", event.target.value)} />
-                    </Field>
-                    <Field label={t.backdropUrlLabel}>
-                      <input
-                        value={selectedMovie.backdropUrl}
-                        onChange={(event) => updateField("backdropUrl", event.target.value)}
+                  {!cloudinaryEnabled ? <p className="admin-note">{t.mediaConfigMissing}</p> : null}
+
+                  <div className="admin-media-grid">
+                    <div className="admin-media-card">
+                      <div className="admin-section-heading admin-subsection-heading">
+                        <h4>{t.posterUrlLabel}</h4>
+                        {selectedMovie.posterUrl ? (
+                          <button className="admin-remove-button" type="button" onClick={() => removeMedia("poster")}>
+                            {t.removeAsset}
+                          </button>
+                        ) : null}
+                      </div>
+                      <MediaUploadButton
+                        key={`${selectedMovie.id}-poster-upload`}
+                        disabled={!cloudinaryEnabled || !isReady || isSubmitting}
+                        label={t.posterUpload}
+                        icon={<ImagePlus size={16} />}
+                        cloudinaryCloudName={cloudinaryCloudName}
+                        cloudinaryApiKey={cloudinaryApiKey}
+                        uploadPreset={cloudinaryUploadPreset}
+                      options={{
+                        folder: getCloudinaryUploadFolder(selectedMovie.id, "poster"),
+                        multiple: false,
+                        resourceType: "image",
+                      }}
+                      onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "poster", assets)}
+                    />
+                      <Field label={t.posterUrlLabel}>
+                        <input value={selectedMovie.posterUrl} onChange={(event) => updateField("posterUrl", event.target.value)} />
+                      </Field>
+                      <Field label={t.cloudinaryPublicIdLabel}>
+                        <input
+                          value={selectedMovie.posterPublicId ?? ""}
+                          onChange={(event) => updateField("posterPublicId", event.target.value)}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="admin-media-card">
+                      <div className="admin-section-heading admin-subsection-heading">
+                        <h4>{t.backdropUrlLabel}</h4>
+                        {selectedMovie.backdropUrl ? (
+                          <button className="admin-remove-button" type="button" onClick={() => removeMedia("backdrop")}>
+                            {t.removeAsset}
+                          </button>
+                        ) : null}
+                      </div>
+                      <MediaUploadButton
+                        key={`${selectedMovie.id}-backdrop-upload`}
+                        disabled={!cloudinaryEnabled || !isReady || isSubmitting}
+                        label={t.backdropUpload}
+                        icon={<ImagePlus size={16} />}
+                        cloudinaryCloudName={cloudinaryCloudName}
+                        cloudinaryApiKey={cloudinaryApiKey}
+                        uploadPreset={cloudinaryUploadPreset}
+                      options={{
+                        folder: getCloudinaryUploadFolder(selectedMovie.id, "backdrop"),
+                        multiple: false,
+                        resourceType: "image",
+                      }}
+                      onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "backdrop", assets)}
+                    />
+                      <Field label={t.backdropUrlLabel}>
+                        <input
+                          value={selectedMovie.backdropUrl}
+                          onChange={(event) => updateField("backdropUrl", event.target.value)}
+                        />
+                      </Field>
+                      <Field label={t.cloudinaryPublicIdLabel}>
+                        <input
+                          value={selectedMovie.backdropPublicId ?? ""}
+                          onChange={(event) => updateField("backdropPublicId", event.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="admin-media-card admin-media-card-wide">
+                    <div className="admin-section-heading admin-subsection-heading">
+                      <h4>{t.trailerSourceLabel}</h4>
+                      {selectedMovie.trailerUrl ? (
+                        <button className="admin-remove-button" type="button" onClick={() => removeMedia("trailer")}>
+                          {t.removeAsset}
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="admin-form-grid">
+                      <Field label={t.trailerSourceLabel}>
+                        <select
+                          value={selectedMovie.trailerSourceType}
+                          onChange={(event) => {
+                            const nextSource = event.target.value as Movie["trailerSourceType"];
+                            updateSelectedMovie((movie) => ({
+                              ...movie,
+                              trailerSourceType: nextSource,
+                              trailerPublicId: nextSource === "External" ? undefined : movie.trailerPublicId,
+                              trailerEmbedUrl: nextSource === "Cloudinary" ? "" : movie.trailerEmbedUrl,
+                            }));
+                          }}
+                        >
+                          <option value="External">{t.trailerSourceExternal}</option>
+                          <option value="Cloudinary">{t.trailerSourceCloudinary}</option>
+                        </select>
+                      </Field>
+                      {selectedMovie.trailerSourceType === "External" ? (
+                        <Field label={t.trailerEmbedUrlLabel}>
+                          <input
+                            value={selectedMovie.trailerEmbedUrl ?? ""}
+                            onChange={(event) => updateField("trailerEmbedUrl", event.target.value)}
+                          />
+                        </Field>
+                      ) : (
+                        <Field label={t.cloudinaryPublicIdLabel}>
+                          <input
+                            value={selectedMovie.trailerPublicId ?? ""}
+                            onChange={(event) => updateField("trailerPublicId", event.target.value)}
+                          />
+                        </Field>
+                      )}
+                    </div>
+                    {selectedMovie.trailerSourceType === "Cloudinary" ? (
+                      <MediaUploadButton
+                        key={`${selectedMovie.id}-trailer-upload`}
+                        disabled={!cloudinaryEnabled || !isReady || isSubmitting}
+                        label={t.trailerUpload}
+                        icon={<Video size={16} />}
+                        cloudinaryCloudName={cloudinaryCloudName}
+                        cloudinaryApiKey={cloudinaryApiKey}
+                        uploadPreset={cloudinaryUploadPreset}
+                        options={{
+                          folder: getCloudinaryUploadFolder(selectedMovie.id, "trailers"),
+                          multiple: false,
+                          resourceType: "video",
+                        }}
+                        onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "trailer", assets)}
                       />
-                    </Field>
+                    ) : null}
                     <Field label={t.trailerUrlLabel}>
                       <input value={selectedMovie.trailerUrl} onChange={(event) => updateField("trailerUrl", event.target.value)} />
                     </Field>
+                  </div>
+
+                  <div className="admin-media-card admin-media-card-wide">
+                    <div className="admin-section-heading admin-subsection-heading">
+                      <h4>{t.gallery}</h4>
+                      <span>{selectedMovie.galleryImages.length}</span>
+                    </div>
+                    <MediaUploadButton
+                      key={`${selectedMovie.id}-gallery-upload`}
+                      disabled={!cloudinaryEnabled || !isReady || isSubmitting}
+                      label={t.galleryUpload}
+                      icon={<ImagePlus size={16} />}
+                      cloudinaryCloudName={cloudinaryCloudName}
+                      cloudinaryApiKey={cloudinaryApiKey}
+                      uploadPreset={cloudinaryUploadPreset}
+                      options={{
+                        folder: getCloudinaryUploadFolder(selectedMovie.id, "gallery"),
+                        multiple: true,
+                        resourceType: "image",
+                      }}
+                      onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "gallery", assets)}
+                    />
+                    {selectedMovie.galleryImages.length > 0 ? (
+                      <div className="admin-gallery-list">
+                        {selectedMovie.galleryImages.map((image, index) => (
+                          <div className="admin-gallery-item" key={`${image.src}-${index}`}>
+                            <div className="admin-gallery-meta">
+                              <strong>{image.publicId ?? image.src}</strong>
+                              <div className="admin-gallery-actions">
+                                <button
+                                  className="admin-inline-button"
+                                  type="button"
+                                  onClick={() => moveGalleryImage(index, -1)}
+                                  disabled={index === 0}
+                                >
+                                  <ArrowUp size={14} />
+                                  {t.moveUp}
+                                </button>
+                                <button
+                                  className="admin-inline-button"
+                                  type="button"
+                                  onClick={() => moveGalleryImage(index, 1)}
+                                  disabled={index === selectedMovie.galleryImages.length - 1}
+                                >
+                                  <ArrowDown size={14} />
+                                  {t.moveDown}
+                                </button>
+                                <button className="admin-remove-button" type="button" onClick={() => removeGalleryImage(index)}>
+                                  {t.removeAsset}
+                                </button>
+                              </div>
+                            </div>
+                            <Field label={t.galleryAltLabel}>
+                              <input value={image.alt} onChange={(event) => updateGalleryImage(index, "alt", event.target.value)} />
+                            </Field>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="admin-note">{t.galleryEmpty}</p>
+                    )}
                   </div>
                 </section>
 
@@ -738,7 +1178,7 @@ export function AdminMoviesClient({
 
                   <div className="admin-preview-card" data-testid="admin-preview-card">
                     <div className="admin-preview-grid">
-                      <PosterBlock movie={selectedMovie} className="selected-poster admin-preview-poster" />
+                      <PosterBlock movie={selectedMovie} className="selected-poster admin-preview-poster" variant="posterAdminPreview" />
 
                       <div className="admin-preview-copy">
                         <p className="eyebrow">{t.preview}</p>
@@ -929,4 +1369,111 @@ function CreditList({
       ))}
     </div>
   );
+}
+
+function MediaUploadButton({
+  disabled,
+  label,
+  icon,
+  cloudinaryCloudName,
+  cloudinaryApiKey,
+  uploadPreset,
+  options,
+  onUploaded,
+}: {
+  disabled: boolean;
+  label: string;
+  icon: ReactNode;
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  uploadPreset: string;
+  options: Record<string, unknown>;
+  onUploaded: (assets: UploadedCloudinaryAsset[]) => void;
+}) {
+  const uploadedAssetsRef = useRef<UploadedCloudinaryAsset[]>([]);
+
+  if (uploadPreset.trim().length === 0) {
+    return (
+      <button className="admin-action-button" type="button" disabled>
+        {icon}
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <CldUploadWidget
+      config={{
+        cloud: {
+          cloudName: cloudinaryCloudName,
+          apiKey: cloudinaryApiKey,
+        },
+      }}
+      signatureEndpoint="/api/cloudinary/sign"
+      uploadPreset={uploadPreset}
+      options={options}
+      onSuccess={(result) => {
+        const asset = extractUploadedAsset(result);
+        if (asset) {
+          uploadedAssetsRef.current = [...uploadedAssetsRef.current, asset];
+        }
+      }}
+      onQueuesEnd={(_result, { widget }) => {
+        const uploadedAssets = uploadedAssetsRef.current;
+        uploadedAssetsRef.current = [];
+        widget.close();
+        if (uploadedAssets.length > 0) {
+          onUploaded(uploadedAssets);
+        }
+      }}
+    >
+      {({ open }) => (
+        <button
+          className="admin-action-button"
+          type="button"
+          onClick={() => open()}
+          disabled={disabled}
+        >
+          {icon}
+          {label}
+        </button>
+      )}
+    </CldUploadWidget>
+  );
+}
+
+function extractUploadedAsset(result: unknown): UploadedCloudinaryAsset | null {
+  if (!result || typeof result !== "object" || !("info" in result)) {
+    return null;
+  }
+
+  const info = (result as { info?: unknown }).info;
+  if (!info || typeof info !== "object") {
+    return null;
+  }
+
+  const secureUrl = "secure_url" in info && typeof info.secure_url === "string" ? info.secure_url : null;
+  const publicId = "public_id" in info && typeof info.public_id === "string" ? info.public_id : null;
+  const resourceType =
+    "resource_type" in info && (info.resource_type === "image" || info.resource_type === "video")
+      ? info.resource_type
+      : null;
+  const originalFilename =
+    "original_filename" in info && typeof info.original_filename === "string" ? info.original_filename : undefined;
+
+  if (!secureUrl || !publicId || !resourceType) {
+    return null;
+  }
+
+  return {
+    secure_url: secureUrl,
+    public_id: publicId,
+    resource_type: resourceType,
+    original_filename: originalFilename,
+  };
+}
+
+function makeGalleryAltText(movieTitle: string, originalFilename?: string, position = 1) {
+  const source = (originalFilename ?? `still-${position}`).replace(/[-_]+/g, " ").trim();
+  return `${movieTitle || "Movie"} still ${position}: ${source}`;
 }

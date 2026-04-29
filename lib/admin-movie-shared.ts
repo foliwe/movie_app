@@ -7,10 +7,12 @@ export type PublishLabels = {
   synopsis: string;
   languages: string;
   genres: string;
+  posterUrl: string;
+  backdropUrl: string;
 };
 
 export function getPublishChecklist(
-  movie: Pick<Movie, "title" | "slug" | "director" | "synopsis" | "languages" | "genres">,
+  movie: Pick<Movie, "title" | "slug" | "director" | "synopsis" | "languages" | "genres" | "posterUrl" | "backdropUrl">,
   labels: PublishLabels,
 ) {
   const blockers: string[] = [];
@@ -32,6 +34,12 @@ export function getPublishChecklist(
   }
   if (movie.genres.length === 0) {
     blockers.push(labels.genres);
+  }
+  if (movie.posterUrl.trim().length === 0) {
+    blockers.push(labels.posterUrl);
+  }
+  if (movie.backdropUrl.trim().length === 0) {
+    blockers.push(labels.backdropUrl);
   }
 
   return blockers;

@@ -1,10 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight, MessageSquare, Play, Star } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, MessageSquare, Play, Star, X } from "lucide-react";
+import { CldImage } from "next-cloudinary";
 import { AccountProfileForm, ChangePasswordForm, ReviewOwnerTools, WriteReviewForm } from "@/components/forms";
 import { useLocale } from "@/components/locale-provider";
 import {
@@ -18,6 +19,7 @@ import {
   ReviewStatusBadge,
   SiteHeader,
 } from "@/components/site";
+import { getCloudinaryImageProps } from "@/lib/cloudinary-media";
 import type { AccountProfile, Movie, Person, Review, UserProfile } from "@/lib/movies";
 import { formatLanguageList, formatPublishedDate, getRoleLabel, type Locale } from "@/lib/i18n";
 
@@ -30,8 +32,13 @@ const movieDetailCopy = {
     watchTrailer: "Watch trailer",
     trailer: "Trailer",
     trailerFallback: "Open trailer",
+    noTrailer: "No trailer is available for this film yet.",
     gallery: "Gallery",
     stills: "stills",
+    galleryHint: "Tap an image to view the gallery.",
+    previousImage: "Previous image",
+    nextImage: "Next image",
+    closeGallery: "Close gallery",
     noGallery: "No gallery images are available for this film yet.",
     writeReview: "Write review",
     cast: "Cast",
@@ -50,8 +57,13 @@ const movieDetailCopy = {
     watchTrailer: "Voir la bande-annonce",
     trailer: "Bande-annonce",
     trailerFallback: "Ouvrir la bande-annonce",
+    noTrailer: "Aucune bande-annonce n'est disponible pour ce film pour le moment.",
     gallery: "Galerie",
     stills: "images",
+    galleryHint: "Touchez une image pour ouvrir la galerie.",
+    previousImage: "Image precedente",
+    nextImage: "Image suivante",
+    closeGallery: "Fermer la galerie",
     noGallery: "Aucune image de galerie n'est disponible pour ce film pour le moment.",
     writeReview: "Ecrire une critique",
     cast: "Distribution",
@@ -220,12 +232,73 @@ const writeReviewCopy = {
 export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieReviews: Review[] }) {
   const { locale } = useLocale();
   const t = movieDetailCopy[locale];
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
+  const effectiveTrailerEmbedUrl =
+    getNormalizedTrailerEmbedUrl(movie.trailerEmbedUrl) ?? getNormalizedTrailerEmbedUrl(movie.trailerUrl);
+  const hasTrailerLink = movie.trailerUrl.trim().length > 0;
+  const trailerSectionHref =
+    movie.trailerSourceType === "Cloudinary" || effectiveTrailerEmbedUrl ? "#movie-trailer-player" : movie.trailerUrl;
+  const autoplayTrailerEmbedUrl = effectiveTrailerEmbedUrl ? getAutoplayTrailerEmbedUrl(effectiveTrailerEmbedUrl) : null;
+  const hasEmbeddedTrailer = movie.trailerSourceType === "Cloudinary" || Boolean(autoplayTrailerEmbedUrl);
+  const hasTrailerAction = hasEmbeddedTrailer || hasTrailerLink;
+  const activeGalleryImage = activeGalleryIndex === null ? null : movie.galleryImages[activeGalleryIndex] ?? null;
+  const activeGalleryPosition = activeGalleryIndex === null ? 0 : activeGalleryIndex + 1;
+
+  useEffect(() => {
+    if (activeGalleryIndex === null) {
+      document.body.style.removeProperty("overflow");
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveGalleryIndex(null);
+        return;
+      }
+
+      if (movie.galleryImages.length <= 1) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        setActiveGalleryIndex((current) =>
+          current === null ? current : (current - 1 + movie.galleryImages.length) % movie.galleryImages.length,
+        );
+      }
+
+      if (event.key === "ArrowRight") {
+        setActiveGalleryIndex((current) =>
+          current === null ? current : (current + 1) % movie.galleryImages.length,
+        );
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.removeProperty("overflow");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeGalleryIndex, movie.galleryImages.length]);
 
   return (
     <main>
       <SiteHeader />
       <section className="detail-hero">
-        <div>
+        {movie.backdropPublicId ? (
+          <CldImage
+            alt=""
+            src={movie.backdropPublicId}
+            className="detail-backdrop cloudinary-media"
+            priority
+            {...getCloudinaryImageProps("backdropHero")}
+          />
+        ) : (
+          <Image src={movie.backdropUrl} alt="" fill sizes="100vw" className="detail-backdrop" priority />
+        )}
+        <div className="detail-hero-overlay" />
+        <div className="detail-copy">
           <p className="eyebrow">{t.eyebrow}</p>
           <h1>{movie.title}</h1>
           <MovieMeta movie={movie} />
@@ -241,58 +314,92 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
             </small>
           </div>
           <div className="hero-actions">
-            <a className="primary-action" href={movie.trailerUrl}>
-              <Play size={18} fill="currentColor" />
-              {t.watchTrailer}
-            </a>
+            {hasTrailerAction ? (
+              <a className="primary-action" href={trailerSectionHref}>
+                <Play size={18} fill="currentColor" />
+                {t.watchTrailer}
+              </a>
+            ) : null}
             <Link className="secondary-action" href={`/write-review/${movie.slug}`}>
               <MessageSquare size={18} />
               {t.writeReview}
             </Link>
           </div>
         </div>
-        <PosterBlock movie={movie} className="detail-poster" />
+        <PosterBlock movie={movie} className="detail-poster" variant="posterDetail" hideTitleWhenImage />
       </section>
 
       <section className="split-band detail-grid detail-media-section" data-testid="movie-media-section">
         <div className="panel media-panel">
           <div className="panel-heading">
             <h2>{t.trailer}</h2>
-            {!movie.trailerEmbedUrl ? (
+            {movie.trailerSourceType !== "Cloudinary" && !effectiveTrailerEmbedUrl && hasTrailerLink ? (
               <a href={movie.trailerUrl}>
                 {t.trailerFallback}
                 <ArrowRight size={16} />
               </a>
             ) : null}
           </div>
-          {movie.trailerEmbedUrl ? (
-            <div className="trailer-frame">
+          {movie.trailerSourceType === "Cloudinary" ? (
+            <video
+              id="movie-trailer-player"
+              className="cloudinary-video-player"
+              controls
+              autoPlay
+              muted
+              playsInline
+              src={movie.trailerUrl}
+              preload="metadata"
+            />
+          ) : autoplayTrailerEmbedUrl ? (
+            <div className="trailer-frame" id="movie-trailer-player">
               <iframe
                 title={`${movie.title} trailer`}
-                src={movie.trailerEmbedUrl}
+                src={autoplayTrailerEmbedUrl}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>
-          ) : (
+          ) : hasTrailerLink ? (
             <a className="detail-action media-fallback-action" href={movie.trailerUrl}>
               {t.watchTrailer}
               <ArrowRight size={18} />
             </a>
+          ) : (
+            <p className="empty-state">{t.noTrailer}</p>
           )}
         </div>
         <div className="panel media-panel">
           <div className="panel-heading">
             <h2>{t.gallery}</h2>
-            <span>
-              {movie.galleryImages.length} {t.stills}
-            </span>
+            <div className="gallery-heading-copy">
+              <span>
+                {movie.galleryImages.length} {t.stills}
+              </span>
+              {movie.galleryImages.length > 0 ? <small>{t.galleryHint}</small> : null}
+            </div>
           </div>
           {movie.galleryImages.length > 0 ? (
             <div className="gallery-grid" data-testid="movie-gallery">
-              {movie.galleryImages.map((image) => (
+              {movie.galleryImages.map((image, index) => (
                 <figure key={image.src} className="gallery-still">
-                  <Image src={image.src} alt={image.alt} fill sizes="(max-width: 780px) 100vw, 33vw" />
+                  <button
+                    type="button"
+                    className="gallery-still-button"
+                    onClick={() => setActiveGalleryIndex(index)}
+                    aria-label={image.alt}
+                  >
+                    {image.publicId ? (
+                      <CldImage
+                        alt={image.alt}
+                        src={image.publicId}
+                        className="cloudinary-media"
+                        {...getCloudinaryImageProps("galleryStill")}
+                      />
+                    ) : (
+                      <Image src={image.src} alt={image.alt} fill sizes="(max-width: 780px) 100vw, 33vw" />
+                    )}
+                  </button>
                 </figure>
               ))}
             </div>
@@ -301,6 +408,73 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
           )}
         </div>
       </section>
+
+      {activeGalleryImage ? (
+        <div className="gallery-lightbox" role="dialog" aria-modal="true" aria-label={t.gallery}>
+          <button
+            type="button"
+            className="gallery-lightbox-backdrop"
+            aria-label={t.closeGallery}
+            onClick={() => setActiveGalleryIndex(null)}
+          />
+          <div className="gallery-lightbox-panel">
+            <button
+              type="button"
+              className="gallery-lightbox-close"
+              aria-label={t.closeGallery}
+              onClick={() => setActiveGalleryIndex(null)}
+            >
+              <X size={18} />
+            </button>
+            {movie.galleryImages.length > 1 ? (
+              <button
+                type="button"
+                className="gallery-lightbox-nav is-prev"
+                aria-label={t.previousImage}
+                onClick={() =>
+                  setActiveGalleryIndex((current) =>
+                    current === null ? current : (current - 1 + movie.galleryImages.length) % movie.galleryImages.length,
+                  )
+                }
+              >
+                <ChevronLeft size={22} />
+              </button>
+            ) : null}
+            <figure className="gallery-lightbox-figure">
+              <div className="gallery-lightbox-media">
+                <Image
+                  src={activeGalleryImage.src}
+                  alt={activeGalleryImage.alt}
+                  fill
+                  sizes="100vw"
+                  className="gallery-lightbox-image"
+                />
+              </div>
+              <figcaption className="gallery-lightbox-caption">
+                <strong>{movie.title}</strong>
+                <span>{activeGalleryImage.alt}</span>
+                <small>
+                  {activeGalleryPosition} / {movie.galleryImages.length}
+                </small>
+              </figcaption>
+            </figure>
+            {movie.galleryImages.length > 1 ? (
+              <button
+                type="button"
+                className="gallery-lightbox-nav is-next"
+                aria-label={t.nextImage}
+                onClick={() =>
+                  setActiveGalleryIndex((current) =>
+                    current === null ? current : (current + 1) % movie.galleryImages.length,
+                  )
+                }
+              >
+                <ChevronRight size={22} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <section className="split-band detail-grid">
         <div className="panel">
@@ -357,6 +531,55 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
       </section>
     </main>
   );
+}
+
+function getAutoplayTrailerEmbedUrl(embedUrl: string) {
+  try {
+    const url = new URL(embedUrl);
+    url.searchParams.set("autoplay", "1");
+    url.searchParams.set("mute", "1");
+    url.searchParams.set("playsinline", "1");
+    url.searchParams.set("rel", "0");
+
+    return url.toString();
+  } catch {
+    return embedUrl;
+  }
+}
+
+function getNormalizedTrailerEmbedUrl(trailerUrl?: string | null) {
+  if (!trailerUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trailerUrl);
+    const host = url.hostname.replace(/^www\./, "");
+
+    if ((host === "youtube-nocookie.com" || host === "youtube.com") && url.pathname.startsWith("/embed/")) {
+      const videoId = url.pathname.split("/").filter(Boolean).pop();
+      return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+    }
+
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const videoId = url.searchParams.get("v");
+      return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+    }
+
+    if (host === "youtu.be") {
+      const videoId = url.pathname.split("/").filter(Boolean)[0];
+      return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+    }
+
+    if (host === "vimeo.com") {
+      const videoId = url.pathname.split("/").filter(Boolean)[0];
+      return videoId ? `https://player.vimeo.com/video/${videoId}` : null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function PersonCreditLink({
@@ -485,7 +708,7 @@ export function ReviewDetailView({
           </div>
         </article>
         <aside className="selected-film-panel">
-          {movie ? <PosterBlock movie={movie} className="selected-poster" /> : null}
+          {movie ? <PosterBlock movie={movie} className="selected-poster" useImage={false} /> : null}
           <p className="eyebrow">{t.filmReviewed}</p>
           <h3>{review.movieTitle}</h3>
           <p>{movie?.synopsis}</p>
@@ -559,7 +782,7 @@ export function WriteReviewView({ movie }: { movie: Movie }) {
           <WriteReviewForm movie={movie} />
         </div>
         <aside className="selected-film-panel">
-          <PosterBlock movie={movie} className="selected-poster" />
+          <PosterBlock movie={movie} className="selected-poster" useImage={false} />
           <MovieMeta movie={movie} />
           <p>{movie.synopsis}</p>
           <LanguageBadges languages={movie.languages} />
