@@ -92,6 +92,8 @@ const copy = {
     cloudinaryPublicIdLabel: "Cloudinary public ID",
     removeAsset: "Remove",
     mediaConfigMissing: "Set the Cloudinary env vars to enable signed uploads in this admin desk.",
+    mediaUploadPreparing: "Preparing uploader...",
+    mediaUploadFailed: "Media upload failed.",
     publicBadge: "Public badge",
     editorPickLabel: "Editor pick",
     editorPickEnabled: "Featured in editor picks",
@@ -184,6 +186,8 @@ const copy = {
     cloudinaryPublicIdLabel: "ID public Cloudinary",
     removeAsset: "Supprimer",
     mediaConfigMissing: "Ajoutez les variables Cloudinary pour activer les televersements signes dans ce bureau admin.",
+    mediaUploadPreparing: "Preparation du televersement...",
+    mediaUploadFailed: "Echec du televersement du media.",
     publicBadge: "Badge public",
     editorPickLabel: "Choix redaction",
     editorPickEnabled: "Mis en avant par la redaction",
@@ -993,6 +997,8 @@ export function AdminMoviesClient({
                         resourceType: "image",
                       }}
                       onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "poster", assets)}
+                      onUploadError={(message) => setFeedback({ tone: "error", message })}
+                      loadingLabel={t.mediaUploadPreparing}
                     />
                       <Field label={t.posterUrlLabel}>
                         <input value={selectedMovie.posterUrl} onChange={(event) => updateField("posterUrl", event.target.value)} />
@@ -1028,6 +1034,8 @@ export function AdminMoviesClient({
                         resourceType: "image",
                       }}
                       onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "backdrop", assets)}
+                      onUploadError={(message) => setFeedback({ tone: "error", message })}
+                      loadingLabel={t.mediaUploadPreparing}
                     />
                       <Field label={t.backdropUrlLabel}>
                         <input
@@ -1102,6 +1110,8 @@ export function AdminMoviesClient({
                           resourceType: "video",
                         }}
                         onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "trailer", assets)}
+                        onUploadError={(message) => setFeedback({ tone: "error", message })}
+                        loadingLabel={t.mediaUploadPreparing}
                       />
                     ) : null}
                     <Field label={t.trailerUrlLabel}>
@@ -1128,6 +1138,8 @@ export function AdminMoviesClient({
                         resourceType: "image",
                       }}
                       onUploaded={(assets) => handleUploadedAssets(selectedMovie.id, "gallery", assets)}
+                      onUploadError={(message) => setFeedback({ tone: "error", message })}
+                      loadingLabel={t.mediaUploadPreparing}
                     />
                     {selectedMovie.galleryImages.length > 0 ? (
                       <div className="admin-gallery-list">
@@ -1375,21 +1387,25 @@ function CreditList({
 function MediaUploadButton({
   disabled,
   label,
+  loadingLabel,
   icon,
   cloudinaryCloudName,
   cloudinaryApiKey,
   uploadPreset,
   options,
   onUploaded,
+  onUploadError,
 }: {
   disabled: boolean;
   label: string;
+  loadingLabel: string;
   icon: ReactNode;
   cloudinaryCloudName: string;
   cloudinaryApiKey: string;
   uploadPreset: string;
   options: Record<string, unknown>;
   onUploaded: (assets: UploadedCloudinaryAsset[]) => void;
+  onUploadError?: (message: string) => void;
 }) {
   const uploadedAssetsRef = useRef<UploadedCloudinaryAsset[]>([]);
 
@@ -1413,6 +1429,10 @@ function MediaUploadButton({
       signatureEndpoint="/api/cloudinary/sign"
       uploadPreset={uploadPreset}
       options={options}
+      onError={(error) => {
+        uploadedAssetsRef.current = [];
+        onUploadError?.(extractUploadErrorMessage(error));
+      }}
       onSuccess={(result) => {
         const asset = extractUploadedAsset(result);
         if (asset) {
@@ -1428,15 +1448,19 @@ function MediaUploadButton({
         }
       }}
     >
-      {({ open }) => (
+      {({ open, isLoading }) => (
         <button
           className="admin-action-button"
           type="button"
-          onClick={() => open()}
-          disabled={disabled}
+          onClick={() => {
+            if (!isLoading) {
+              open();
+            }
+          }}
+          disabled={disabled || Boolean(isLoading)}
         >
           {icon}
-          {label}
+          {isLoading ? loadingLabel : label}
         </button>
       )}
     </CldUploadWidget>
@@ -1477,4 +1501,18 @@ function extractUploadedAsset(result: unknown): UploadedCloudinaryAsset | null {
 function makeGalleryAltText(movieTitle: string, originalFilename?: string, position = 1) {
   const source = (originalFilename ?? `still-${position}`).replace(/[-_]+/g, " ").trim();
   return `${movieTitle || "Movie"} still ${position}: ${source}`;
+}
+
+function extractUploadErrorMessage(error: unknown) {
+  if (error && typeof error === "object") {
+    if ("statusText" in error && typeof error.statusText === "string" && error.statusText.trim().length > 0) {
+      return error.statusText;
+    }
+
+    if ("message" in error && typeof error.message === "string" && error.message.trim().length > 0) {
+      return error.message;
+    }
+  }
+
+  return copy.en.mediaUploadFailed;
 }

@@ -282,6 +282,23 @@ export function MovieDetailView({ movie, movieReviews }: { movie: Movie; movieRe
     };
   }, [activeGalleryIndex, movie.galleryImages.length]);
 
+  useEffect(() => {
+    if (!hasEmbeddedTrailer) {
+      return;
+    }
+
+    const scrollTimer = window.setTimeout(() => {
+      document.getElementById("movie-trailer-player")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 150);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+    };
+  }, [hasEmbeddedTrailer, movie.slug]);
+
   return (
     <main>
       <SiteHeader />
