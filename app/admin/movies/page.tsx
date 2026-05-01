@@ -1,32 +1,27 @@
-import { redirect } from "next/navigation";
-import { AdminMoviesClient } from "@/components/admin-movies-client";
-import { getAdminMoviesPageData } from "@/lib/admin-movies";
-import { getCurrentUser } from "@/lib/auth";
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import { AdminShell, AdminTitlesView } from "@/components/admin-suite";
+import { getAdminSuiteData } from "@/lib/admin-suite-data";
+import { requireAdmin } from "@/lib/admin-route";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminMoviesPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login?next=/admin/movies");
-  }
-
-  if (user.role !== "Admin") {
-    redirect("/");
-  }
-
-  const { records, people, languages, genres } = await getAdminMoviesPageData();
+  const [user, data] = await Promise.all([requireAdmin("/admin/movies"), getAdminSuiteData()]);
 
   return (
-    <AdminMoviesClient
-      initialRecords={records}
-      people={people}
-      languageOptions={languages}
-      genreOptions={genres}
-      cloudinaryCloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
-      cloudinaryApiKey={process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? process.env.CLOUDINARY_API_KEY ?? ""}
-      cloudinaryUploadPreset={process.env.CLOUDINARY_UPLOAD_PRESET ?? ""}
-    />
+    <AdminShell
+      user={user}
+      title="Titles"
+      subtitle="Manage and organize your movie & TV show library."
+      actions={
+        <Link className="cineverse-topbar-link" href="/admin/movies/new">
+          <Plus size={16} />
+          Add New Title
+        </Link>
+      }
+    >
+      <AdminTitlesView data={data} />
+    </AdminShell>
   );
 }

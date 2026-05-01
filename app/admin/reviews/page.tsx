@@ -1,22 +1,15 @@
-import { redirect } from "next/navigation";
-import { AdminReviewsView } from "@/components/detail-views";
-import { getCurrentUser } from "@/lib/auth";
-import { getAdminReviews } from "@/lib/catalog-data";
+import { AdminReviewsSuiteView, AdminShell } from "@/components/admin-suite";
+import { getAdminSuiteData } from "@/lib/admin-suite-data";
+import { requireAdmin } from "@/lib/admin-route";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminReviewsPage() {
-  const user = await getCurrentUser();
+  const [user, data] = await Promise.all([requireAdmin("/admin/reviews"), getAdminSuiteData()]);
 
-  if (!user) {
-    redirect("/login?next=/admin/reviews");
-  }
-
-  if (user.role !== "Admin") {
-    redirect("/");
-  }
-
-  const reviews = await getAdminReviews();
-
-  return <AdminReviewsView reviews={reviews} />;
+  return (
+    <AdminShell user={user} title="Reviews" subtitle="Moderate and manage user reviews across the platform.">
+      <AdminReviewsSuiteView data={data} />
+    </AdminShell>
+  );
 }

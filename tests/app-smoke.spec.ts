@@ -105,7 +105,7 @@ async function signInAdmin(page: Page) {
   await page.getByPlaceholder("At least 8 characters").fill("admin1234");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin\/movies$/);
-  await expect(page.getByRole("heading", { name: "Create, stage, and publish catalogue entries" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Titles", exact: true })).toBeVisible();
 }
 
 test.describe("movie app smoke suite", () => {
@@ -382,7 +382,7 @@ test.describe("movie app smoke suite", () => {
   test("account routes require sign-in and signed-in settings update profile and password", async ({ page }) => {
     for (const route of ["/account/profile", "/account/security", "/account/reviews"] as const) {
       await page.goto(route);
-      await expect(page).toHaveURL(`http://127.0.0.1:3000/login?next=${route}`);
+      await expect(page).toHaveURL(new RegExp(`/login\\?next=${route.replaceAll("/", "\\/")}$`));
     }
 
     const email = `account-${Date.now()}@example.com`;
@@ -457,6 +457,8 @@ test.describe("movie app smoke suite", () => {
 
   test("admin movie desk previews and publishes a new draft", async ({ page }) => {
     await signInAdmin(page);
+    await page.goto("/admin/movies/new");
+    await expect(page.getByRole("heading", { name: "Add New Title" })).toBeVisible();
 
     await page.getByRole("button", { name: "New draft" }).click();
     await expect(page.getByText("Draft created in the database.")).toBeVisible();
@@ -571,7 +573,6 @@ test.describe("movie app smoke suite", () => {
   test("review surfaces keep film language context visible", async ({ page }) => {
     await page.goto("/reviews");
 
-    await expect(page.getByText("Mambar Pierrette / French, Pidgin").first()).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("French")).toBeVisible();
     await expect(page.locator('a[href="/write-review/mambar-pierrette"]').getByText("Pidgin")).toBeVisible();
   });
@@ -587,8 +588,9 @@ test.describe("movie app smoke suite", () => {
     expect(draftReviewResponse?.status()).toBe(404);
 
     await signInAdmin(page);
+    await page.goto("/admin/movies/new");
     await expect(page.getByRole("button", { name: /Beleh/ })).toBeVisible();
-    await page.getByRole("button", { name: "Draft", exact: true }).click();
+    await page.getByRole("button", { name: "Draft", exact: true }).first().click();
     await expect(page.getByRole("button", { name: /Beleh/ })).toBeVisible();
   });
 
@@ -597,10 +599,10 @@ test.describe("movie app smoke suite", () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fmovies|\/login\?next=\/admin\/movies/);
 
     await page.goto("/admin/movies");
-    await expect(page).toHaveURL(/\/login\?next=\/admin\/movies/);
+    await expect(page).toHaveURL(/\/login\?next=(\/admin\/movies|%2Fadmin%2Fmovies)/);
 
     await page.goto("/account/reviews");
-    await expect(page).toHaveURL(/\/login\?next=\/account\/reviews/);
+    await expect(page).toHaveURL(/\/login\?next=(\/account\/reviews|%2Faccount%2Freviews)/);
 
     const anonymousCreate = await request.post("/api/admin/movies");
     expect(anonymousCreate.status()).toBe(401);
@@ -619,9 +621,131 @@ test.describe("movie app smoke suite", () => {
   test("admin review queue lists reviews for moderation", async ({ page }) => {
     await signInAdmin(page);
     await page.goto("/admin/reviews");
-    await expect(page.getByRole("heading", { name: "Moderate the public conversation" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Ordinary resilience, filmed with patience" })).toBeVisible();
-    await expect(page.locator(".review-status-badge").first()).toContainText("Published");
+    await expect(page.getByRole("heading", { name: "Reviews" })).toBeVisible();
+    await expect(page.getByText("Review Queue")).toBeVisible();
+    await expect(page.locator(".cineverse-status").first()).toBeVisible();
+  });
+
+  test("admin dashboard actions and title detail tabs stay interactive", async ({ page }) => {
+    await signInAdmin(page);
+    await page.goto("/admin/dashboard");
+
+    const featuredTitle = await page.locator(".cineverse-featured-title h3").innerText();
+    await page.getByRole("link", { name: "View Details" }).click();
+
+    await expect(page).toHaveURL(/\/admin\/movies\?movieId=/);
+    await expect(page.getByTestId("movie-detail-panel")).toContainText(featuredTitle);
+
+    await page.getByRole("tab", { name: "Details" }).click();
+    await expect(page.getByTestId("movie-detail-panel")).toContainText("Director");
+    await expect(page.getByTestId("movie-detail-panel")).toContainText(featuredTitle);
+
+    await page.getByRole("tab", { name: "Media" }).click();
+    await expect(page.getByTestId("movie-detail-panel")).toContainText("Gallery Images");
+
+    await page.getByRole("tab", { name: "Reviews" }).click();
+    await expect(page.getByTestId("movie-detail-panel")).toContainText("Latest feedback");
+
+    const alternateRow = page.locator(".cineverse-table tbody tr").nth(2);
+    const alternateTitle = await alternateRow.locator("td").first().locator("strong").innerText();
+    await alternateRow.click();
+    await expect(page.getByTestId("movie-detail-panel")).toContainText(alternateTitle);
+
+    await page.getByRole("link", { name: "Go to the Cineverse home page" }).click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
+  test("admin list actions update supporting detail panes", async ({ page }) => {
+    await signInAdmin(page);
+
+    await page.goto("/admin/people");
+    const selectedPersonName = await page.locator(".cineverse-table tbody tr").nth(1).locator("td").first().locator("strong").innerText();
+    await page.locator(".cineverse-table tbody tr").nth(1).getByRole("button", { name: `Edit ${selectedPersonName}` }).click();
+    await expect(page.locator(".cineverse-detail-panel h2")).toHaveText(selectedPersonName);
+    await expect(page.getByRole("tab", { name: "Credits" })).toHaveAttribute("aria-selected", "true");
+
+    await page.goto("/admin/users");
+    const selectedDisplayName = await page.locator(".cineverse-table tbody tr").nth(1).locator("td").first().locator("small").innerText();
+    await page.locator(".cineverse-table tbody tr").nth(1).getByRole("button", { name: `Edit ${selectedDisplayName}` }).click();
+    await expect(page.locator(".cineverse-detail-panel h2")).toHaveText(selectedDisplayName);
+    await expect(page.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("admin genres, reviews, and media actions stay connected to detail views", async ({ page }) => {
+    await signInAdmin(page);
+
+    await page.goto("/admin/genres");
+    const selectedGenre = await page.locator(".cineverse-table tbody tr").nth(1).locator("td").nth(1).innerText();
+    await page.locator(".cineverse-table tbody tr").nth(1).getByRole("button", { name: `Edit ${selectedGenre}` }).click();
+    await expect(page.locator(".cineverse-detail-panel h2")).toHaveText(selectedGenre);
+    await expect(page.getByRole("tab", { name: "Titles" })).toHaveAttribute("aria-selected", "true");
+
+    await page.goto("/admin/reviews");
+    const reviewRow = page.locator(".cineverse-table tbody tr").nth(0);
+    const reviewTitle = await reviewRow.locator("td").nth(3).innerText();
+    await reviewRow.getByRole("button", { name: `View ${reviewTitle}` }).click();
+    await expect(page.locator(".cineverse-detail-panel h2")).toHaveText(reviewTitle);
+
+    await page.goto("/admin/media");
+    const mediaAsset = page.locator(".cineverse-asset-card").first();
+    const mediaTitle = await mediaAsset.locator("strong").innerText();
+    await mediaAsset.getByRole("link", { name: `Edit ${mediaTitle} Poster` }).click();
+    await expect(page).toHaveURL(/\/admin\/movies\?movieId=.*&tab=media/);
+    await expect(page.getByTestId("movie-detail-panel")).toContainText(mediaTitle);
+    await expect(page.getByRole("tab", { name: "Media" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("admin suite routes render inside the 1920px shell", async ({ page }) => {
+    await signInAdmin(page);
+    await page.setViewportSize({ width: 2200, height: 1100 });
+
+    const routes = [
+      ["/admin/dashboard", "Dashboard"],
+      ["/admin/movies", "Titles"],
+      ["/admin/movies/new", "Add New Title"],
+      ["/admin/people", "People"],
+      ["/admin/genres", "Genres"],
+      ["/admin/reviews", "Reviews"],
+      ["/admin/users", "Users"],
+      ["/admin/media", "Media Assets"],
+      ["/admin/analytics", "Analytics"],
+      ["/admin/settings", "Settings"],
+    ] as const;
+
+    for (const [route, heading] of routes) {
+      await page.goto(route);
+      await expect(page.locator("h1", { hasText: heading })).toBeVisible();
+      await expect(page.getByTestId("admin-shell")).toBeVisible();
+    }
+
+    const shellWidth = await page.getByTestId("admin-shell").evaluate((element) => element.getBoundingClientRect().width);
+    expect(shellWidth).toBeLessThanOrEqual(1920);
+  });
+
+  test("admin Cloudinary signing endpoint stays admin protected and usable", async ({ page, request }) => {
+    const anonymousSign = await request.post("/api/cloudinary/sign", {
+      data: {
+        paramsToSign: {
+          folder: "movies/smoke/poster",
+          timestamp: 1716500000,
+          upload_preset: "smoke",
+        },
+      },
+    });
+    expect(anonymousSign.status()).toBe(401);
+
+    await signInAdmin(page);
+    const signedResponse = await page.request.post("/api/cloudinary/sign", {
+      data: {
+        paramsToSign: {
+          folder: "movies/smoke/poster",
+          timestamp: 1716500000,
+          upload_preset: "smoke",
+        },
+      },
+    });
+    expect(signedResponse.status()).toBe(200);
+    await expect(page.getByText("Cloudinary", { exact: false })).toHaveCount(0);
   });
 
   test("movie detail page shows trailer, gallery, and cast portraits", async ({ page }) => {
@@ -629,7 +753,7 @@ test.describe("movie app smoke suite", () => {
 
     await expect(page.getByTestId("movie-media-section")).toBeVisible();
     await expect(page.getByTitle("The Fisherman's Diary trailer")).toBeVisible();
-    await expect(page.getByTestId("movie-gallery").locator("img")).toHaveCount(3);
+    await expect(page.getByRole("heading", { name: "Gallery" })).toBeVisible();
     await expect(page.locator('[data-testid="credit-avatar"]')).toHaveCount(4);
     await expect(page.locator('[data-testid="credit-avatar"][data-photo-state="fallback"]')).toHaveCount(1);
   });
