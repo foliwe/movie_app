@@ -564,6 +564,7 @@ export function AdminMoviesClient({
         ...movie,
         trailerUrl: "",
         trailerPublicId: undefined,
+        trailerSourceType: "External",
         trailerEmbedUrl: "",
       };
     });

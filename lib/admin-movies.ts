@@ -610,17 +610,46 @@ async function cleanupReplacedAssets(
   nextMovie: AdminMovieInput,
 ) {
   const deletions: Array<Promise<void>> = [];
+  const scheduledImageDeletions = new Set<string>();
+  const scheduledVideoDeletions = new Set<string>();
+  const nextImagePublicIds = new Set(
+    [nextMovie.posterPublicId, nextMovie.backdropPublicId, ...nextMovie.galleryImages.map((image) => image.publicId)].filter(
+      (publicId): publicId is string => Boolean(publicId),
+    ),
+  );
+  const nextVideoPublicIds = new Set(
+    [nextMovie.trailerPublicId].filter((publicId): publicId is string => Boolean(publicId)),
+  );
+
+  function queueAssetDeletion(publicId: string | null, type: "image" | "video") {
+    if (!publicId) {
+      return;
+    }
+
+    const nextReferences = type === "image" ? nextImagePublicIds : nextVideoPublicIds;
+    if (nextReferences.has(publicId)) {
+      return;
+    }
+
+    const scheduledDeletions = type === "image" ? scheduledImageDeletions : scheduledVideoDeletions;
+    if (scheduledDeletions.has(publicId)) {
+      return;
+    }
+
+    scheduledDeletions.add(publicId);
+    deletions.push(deleteCloudinaryAsset(publicId, type));
+  }
 
   if (previousMovie.posterPublicId && previousMovie.posterPublicId !== nextMovie.posterPublicId) {
-    deletions.push(deleteCloudinaryAsset(previousMovie.posterPublicId, "image"));
+    queueAssetDeletion(previousMovie.posterPublicId, "image");
   }
 
   if (previousMovie.backdropPublicId && previousMovie.backdropPublicId !== nextMovie.backdropPublicId) {
-    deletions.push(deleteCloudinaryAsset(previousMovie.backdropPublicId, "image"));
+    queueAssetDeletion(previousMovie.backdropPublicId, "image");
   }
 
   if (previousMovie.trailerPublicId && previousMovie.trailerPublicId !== nextMovie.trailerPublicId) {
-    deletions.push(deleteCloudinaryAsset(previousMovie.trailerPublicId, "video"));
+    queueAssetDeletion(previousMovie.trailerPublicId, "video");
   }
 
   const nextGalleryPublicIds = new Set(
@@ -629,7 +658,7 @@ async function cleanupReplacedAssets(
 
   for (const image of previousMovie.galleryImages) {
     if (image.publicId && !nextGalleryPublicIds.has(image.publicId)) {
-      deletions.push(deleteCloudinaryAsset(image.publicId, "image"));
+      queueAssetDeletion(image.publicId, "image");
     }
   }
 
