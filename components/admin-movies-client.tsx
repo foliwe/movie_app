@@ -247,6 +247,7 @@ export function AdminMoviesClient({
 }) {
   const { locale } = useLocale();
   const searchParams = useSearchParams();
+  const requestedMovieId = searchParams?.get("movieId") ?? "";
   const t = copy[locale];
   const [records, setRecords] = useState<Movie[]>(initialRecords);
   const [selectedId, setSelectedId] = useState(initialRecords[0]?.id ?? "");
@@ -313,14 +314,12 @@ export function AdminMoviesClient({
   }, []);
 
   useEffect(() => {
-    const requestedMovieId = searchParams?.get("movieId");
-
     if (!requestedMovieId || !records.some((movie) => movie.id === requestedMovieId)) {
       return;
     }
 
     setSelectedId(requestedMovieId);
-  }, [records, searchParams]);
+  }, [requestedMovieId]);
 
   function updateSelectedMovie(updater: (movie: Movie) => Movie) {
     setRecords((current) =>

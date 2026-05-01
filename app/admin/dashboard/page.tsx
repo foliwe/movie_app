@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/dashboard"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/dashboard");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell user={user} title="Dashboard" subtitle="Overview of your movie database">

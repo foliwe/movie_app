@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminGenresPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/genres"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/genres");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell user={user} title="Genres" subtitle="Manage genre taxonomy, subgenres and relationships">

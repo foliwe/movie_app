@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminReviewsPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/reviews"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/reviews");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell user={user} title="Reviews" subtitle="Moderate and manage user reviews across the platform.">

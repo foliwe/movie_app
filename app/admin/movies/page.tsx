@@ -7,7 +7,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminMoviesPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/movies"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/movies");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell

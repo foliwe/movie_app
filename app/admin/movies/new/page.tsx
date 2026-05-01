@@ -6,7 +6,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminNewMoviePage() {
-  const [user, pageData] = await Promise.all([requireAdmin("/admin/movies/new"), getAdminMoviesPageData()]);
+  const user = await requireAdmin("/admin/movies/new");
+  const pageData = await getAdminMoviesPageData();
 
   return (
     <AdminShell user={user} title="Add New Title" subtitle="Create a new movie or TV show entry in your database.">
