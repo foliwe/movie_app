@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/settings"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/settings");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell user={user} title="Settings" subtitle="Configure platform settings and access controls">

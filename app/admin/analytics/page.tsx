@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminAnalyticsPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/analytics"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/analytics");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell user={user} title="Analytics" subtitle="Audience and platform performance insights">

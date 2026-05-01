@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin-route";
 export const dynamic = "force-dynamic";
 
 export default async function AdminMediaPage() {
-  const [user, data] = await Promise.all([requireAdmin("/admin/media"), getAdminSuiteData()]);
+  const user = await requireAdmin("/admin/media");
+  const data = await getAdminSuiteData();
 
   return (
     <AdminShell user={user} title="Media Assets" subtitle="Manage posters, stills, banners, logos and trailers.">
