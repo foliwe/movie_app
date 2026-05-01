@@ -4,8 +4,9 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, CheckCircle2, Clapperboard, ImagePlus, Loader2, Plus, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CldUploadWidget } from "next-cloudinary";
-import { LanguageBadges, MovieArtwork, MovieMeta, PageHero, PosterBlock, SiteHeader } from "@/components/site";
+import { LanguageBadges, MovieArtwork, MovieMeta, PosterBlock } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
 import { getCloudinaryUploadFolder } from "@/lib/cloudinary-media";
 import {
@@ -245,6 +246,7 @@ export function AdminMoviesClient({
   cloudinaryUploadPreset: string;
 }) {
   const { locale } = useLocale();
+  const searchParams = useSearchParams();
   const t = copy[locale];
   const [records, setRecords] = useState<Movie[]>(initialRecords);
   const [selectedId, setSelectedId] = useState(initialRecords[0]?.id ?? "");
@@ -309,6 +311,16 @@ export function AdminMoviesClient({
   useEffect(() => {
     setIsReady(true);
   }, []);
+
+  useEffect(() => {
+    const requestedMovieId = searchParams?.get("movieId");
+
+    if (!requestedMovieId || !records.some((movie) => movie.id === requestedMovieId)) {
+      return;
+    }
+
+    setSelectedId(requestedMovieId);
+  }, [records, searchParams]);
 
   function updateSelectedMovie(updater: (movie: Movie) => Movie) {
     setRecords((current) =>
@@ -701,11 +713,8 @@ export function AdminMoviesClient({
   }
 
   return (
-    <main>
-      <SiteHeader />
-      <PageHero eyebrow={t.eyebrow} title={t.title} body={t.body} />
-
-      <section className="discover-band page-section admin-shell">
+    <div className="admin-editor-workspace">
+      <section className="admin-shell admin-editor-legacy">
         <div className="admin-stats">
           <MetricCard label={t.records} value={stats.records} icon={<Clapperboard size={18} />} />
           <MetricCard label={t.drafts} value={stats.drafts} icon={<Sparkles size={18} />} />
@@ -1303,7 +1312,7 @@ export function AdminMoviesClient({
           </section>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 
