@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, MessageSquare, Play, Search, SlidersHorizontal, Star } from "lucide-react";
 import clsx from "clsx";
-import { FreshReviewListItem, LanguageBadges, MovieRow, PageHero, ReviewCard, SiteHeader } from "@/components/site";
+import { CldImage } from "next-cloudinary";
+import { FreshReviewListItem, LanguageBadges, MovieArtwork, MovieRow, PageHero, ReviewCard, SiteHeader } from "@/components/site";
 import { useLocale } from "@/components/locale-provider";
+import { getCloudinaryImageProps } from "@/lib/cloudinary-media";
 import { getGenreLabel, getLanguageLabel, getRoleLabel, type Locale } from "@/lib/i18n";
 import type { Movie, Person, Review } from "@/lib/movies";
 
@@ -23,6 +25,7 @@ const homeCopy = {
     quoteSource: "237 Film Room",
     trending: "Trending now",
     editor: "Editor picks",
+    editorEmpty: "No editor picks are featured yet.",
     recent: "Fresh reviews",
     viewAll: "View all",
     browse: "Browse all",
@@ -45,6 +48,7 @@ const homeCopy = {
     quoteSource: "237 Film Room",
     trending: "En tendance",
     editor: "Choix de la redaction",
+    editorEmpty: "Aucun choix de la redaction n'est mis en avant pour le moment.",
     recent: "Critiques recentes",
     viewAll: "Tout voir",
     browse: "Tout parcourir",
@@ -68,6 +72,9 @@ const moviesCopy = {
     language: "Language",
     year: "Year",
     rating: "Rating",
+    previous: "Previous",
+    next: "Next",
+    page: "Page",
     allGenres: "All genres",
     allLanguages: "All languages",
     allYears: "All years",
@@ -84,6 +91,9 @@ const moviesCopy = {
     language: "Langue",
     year: "Annee",
     rating: "Note",
+    previous: "Precedent",
+    next: "Suivant",
+    page: "Page",
     allGenres: "Tous genres",
     allLanguages: "Toutes langues",
     allYears: "Toutes annees",
@@ -177,6 +187,8 @@ export function HomePageView({
   const [activeLanguage, setActiveLanguage] = useState("All");
   const t = homeCopy[locale];
   const heroMovie = movies.find((movie) => movie.id === selectedMovieId) ?? movies[1] ?? movies[0];
+  const reviewMovieLookup = useMemo(() => new Map(movies.map((movie) => [movie.slug, movie])), [movies]);
+  const editorPickMovies = useMemo(() => movies.filter((movie) => movie.editorPick).slice(0, 3), [movies]);
 
   const filteredMovies = useMemo(
     () =>
@@ -205,7 +217,17 @@ export function HomePageView({
       <SiteHeader />
 
       <section className="hero-shell">
-        <Image src={heroMovie.backdropUrl} alt="" fill sizes="100vw" className="hero-backdrop" priority />
+        {heroMovie.backdropPublicId ? (
+          <CldImage
+            alt=""
+            src={heroMovie.backdropPublicId}
+            className="hero-backdrop cloudinary-media"
+            priority
+            {...getCloudinaryImageProps("backdropHero")}
+          />
+        ) : (
+          <Image src={heroMovie.backdropUrl} alt="" fill sizes="100vw" className="hero-backdrop" priority />
+        )}
         <div className="hero-overlay" />
 
         <div className="hero-content">
@@ -273,9 +295,7 @@ export function HomePageView({
               key={movie.id}
               onClick={() => setSelectedMovieId(movie.id)}
             >
-              <div className={clsx("mini-poster", `poster-${movie.palette}`)}>
-                <strong>{movie.title}</strong>
-              </div>
+              <MovieArtwork movie={movie} className="mini-poster" variant="posterRail" hideTitleWhenImage />
               <div className="movie-card-copy">
                 <h3>{movie.title}</h3>
                 <Star size={13} fill="currentColor" />
@@ -297,13 +317,17 @@ export function HomePageView({
             <Link href="/movies">{t.viewAll}</Link>
           </div>
           <div className="editor-grid">
-            {movies.slice(0, 3).map((movie) => (
-              <article key={movie.id}>
-                <div className={clsx("editor-poster", `poster-${movie.palette}`)}>
-                  <strong>{movie.title}</strong>
-                </div>
-              </article>
-            ))}
+            {editorPickMovies.length > 0 ? (
+              editorPickMovies.map((movie) => (
+                <Link key={movie.id} href={`/movies/${movie.slug}`} aria-label={`Open ${movie.title}`} className="editor-grid-link">
+                  <article>
+                    <MovieArtwork movie={movie} className="editor-poster" variant="posterEditor" />
+                  </article>
+                </Link>
+              ))
+            ) : (
+              <p className="empty-state">{t.editorEmpty}</p>
+            )}
           </div>
         </div>
 
@@ -316,7 +340,7 @@ export function HomePageView({
             <Link href="/reviews">{t.viewAll}</Link>
           </div>
           {reviews.map((review) => (
-            <FreshReviewListItem key={review.id} review={review} />
+            <FreshReviewListItem key={review.id} review={review} movie={reviewMovieLookup.get(review.movieSlug)} />
           ))}
         </aside>
       </section>
@@ -374,9 +398,11 @@ export function MoviesPageView({
   const { locale } = useLocale();
   const [genre, setGenre] = useState("All");
   const [language, setLanguage] = useState("All");
-  const [minimumRating, setMinimumRating] = useState(7);
+  const [minimumRating, setMinimumRating] = useState(1);
   const [year, setYear] = useState("All");
+  const [page, setPage] = useState(1);
   const t = moviesCopy[locale];
+  const moviesPerPage = 10;
 
   const years = useMemo(() => ["All", ...Array.from(new Set(movies.map((movie) => String(movie.releaseYear))))], [movies]);
   const filteredMovies = useMemo(
@@ -391,6 +417,19 @@ export function MoviesPageView({
       }),
     [genre, language, minimumRating, movies, year],
   );
+  const totalPages = Math.max(1, Math.ceil(filteredMovies.length / moviesPerPage));
+  const paginatedMovies = useMemo(
+    () => filteredMovies.slice((page - 1) * moviesPerPage, page * moviesPerPage),
+    [filteredMovies, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [genre, language, minimumRating, year]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   return (
     <main>
@@ -447,11 +486,29 @@ export function MoviesPageView({
           </div>
         </div>
         <div className="catalogue-list">
-          {filteredMovies.map((movie) => (
+          {paginatedMovies.map((movie) => (
             <MovieRow key={movie.id} movie={movie} href={`/movies/${movie.slug}`} />
           ))}
           {filteredMovies.length === 0 ? <p className="empty-state">{t.empty}</p> : null}
         </div>
+        {filteredMovies.length > moviesPerPage ? (
+          <div className="pagination-bar" aria-label={`${t.page} navigation`}>
+            <button className="secondary-action pagination-button" type="button" onClick={() => setPage((current) => current - 1)} disabled={page === 1}>
+              {t.previous}
+            </button>
+            <strong>
+              {t.page} {page} / {totalPages}
+            </strong>
+            <button
+              className="secondary-action pagination-button"
+              type="button"
+              onClick={() => setPage((current) => current + 1)}
+              disabled={page === totalPages}
+            >
+              {t.next}
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   );

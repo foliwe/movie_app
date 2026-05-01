@@ -14,12 +14,17 @@ export type Movie = {
   rating: number;
   reviews: number;
   trend: string;
+  editorPick: boolean;
   palette: "amber" | "teal" | "rose" | "ivory" | "green";
   workflowStatus: "Draft" | "Published";
   status: "Published" | "Festival" | "Classic";
   posterUrl: string;
+  posterPublicId?: string;
   backdropUrl: string;
+  backdropPublicId?: string;
   trailerUrl: string;
+  trailerPublicId?: string;
+  trailerSourceType: "External" | "Cloudinary";
   trailerEmbedUrl?: string;
   galleryImages: GalleryImage[];
   cast: CastCredit[];
@@ -28,6 +33,7 @@ export type Movie = {
 
 export type GalleryImage = {
   src: string;
+  publicId?: string;
   alt: string;
 };
 
@@ -108,12 +114,17 @@ export const movies: Movie[] = [
     rating: 8.7,
     reviews: 128,
     trend: "+24% this week",
+    editorPick: true,
     palette: "amber",
     workflowStatus: "Published",
     status: "Festival",
     posterUrl: "/assets/homepage-concept.png",
+    posterPublicId: undefined,
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
+    backdropPublicId: undefined,
     trailerUrl: "https://example.com/trailers/mambar-pierrette",
+    trailerPublicId: undefined,
+    trailerSourceType: "External",
     trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/8x4dLslD0aU",
     galleryImages: [
       { src: "/assets/gallery/still-amber-market.svg", alt: "Pierrette at her sewing table with folded fabrics stacked high." },
@@ -144,12 +155,17 @@ export const movies: Movie[] = [
     rating: 7.9,
     reviews: 314,
     trend: "Oscar entry",
+    editorPick: true,
     palette: "teal",
     workflowStatus: "Published",
     status: "Published",
     posterUrl: "/assets/homepage-concept.png",
+    posterPublicId: undefined,
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
+    backdropPublicId: undefined,
     trailerUrl: "https://example.com/trailers/the-fishermans-diary",
+    trailerPublicId: undefined,
+    trailerSourceType: "External",
     trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/T0v8qK8tQ7Q",
     galleryImages: [
       { src: "/assets/gallery/still-teal-shore.svg", alt: "Ekah standing near fishing boats at first light." },
@@ -180,12 +196,17 @@ export const movies: Movie[] = [
     rating: 8.2,
     reviews: 87,
     trend: "AMAA winner",
+    editorPick: true,
     palette: "rose",
     workflowStatus: "Published",
     status: "Published",
     posterUrl: "/assets/homepage-concept.png",
+    posterPublicId: undefined,
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
+    backdropPublicId: undefined,
     trailerUrl: "https://example.com/trailers/ninahs-dowry",
+    trailerPublicId: undefined,
+    trailerSourceType: "External",
     trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/2uV0hHnB1Q8",
     galleryImages: [
       { src: "/assets/gallery/still-rose-courtyard.svg", alt: "Ninah crossing a sunlit courtyard with urgency." },
@@ -217,12 +238,17 @@ export const movies: Movie[] = [
     rating: 8.5,
     reviews: 201,
     trend: "Restored classic",
+    editorPick: false,
     palette: "ivory",
     workflowStatus: "Published",
     status: "Classic",
     posterUrl: "/assets/homepage-concept.png",
+    posterPublicId: undefined,
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
+    backdropPublicId: undefined,
     trailerUrl: "https://example.com/trailers/muna-moto",
+    trailerPublicId: undefined,
+    trailerSourceType: "External",
     trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/r0s0Q7R7P9A",
     galleryImages: [
       { src: "/assets/gallery/still-ivory-village.svg", alt: "A village lane with two figures paused between conflict and intimacy." },
@@ -253,12 +279,17 @@ export const movies: Movie[] = [
     rating: 7.4,
     reviews: 42,
     trend: "Short spotlight",
+    editorPick: false,
     palette: "green",
     workflowStatus: "Draft",
     status: "Published",
     posterUrl: "/assets/homepage-concept.png",
+    posterPublicId: undefined,
     backdropUrl: "/assets/cameroon-cinema-backdrop.png",
+    backdropPublicId: undefined,
     trailerUrl: "https://example.com/trailers/beleh",
+    trailerPublicId: undefined,
+    trailerSourceType: "External",
     trailerEmbedUrl: "https://www.youtube-nocookie.com/embed/IEh2-2-1K0k",
     galleryImages: [
       { src: "/assets/gallery/still-green-home.svg", alt: "A compressed living room scene charged with comic panic." },
