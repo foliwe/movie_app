@@ -31,26 +31,32 @@ async function getMailpitMessageById(id: string) {
   return (await response.json()) as MailpitMessage;
 }
 
-async function waitForLatestMailpitMessage(recipient: string, timeoutMs = 15_000) {
+async function waitForMailpitMessage(
+  recipient: string,
+  predicate: (message: MailpitMessage) => boolean = () => true,
+  timeoutMs = 15_000,
+) {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     const query = encodeURIComponent(`to:${recipient}`);
-    const response = await fetch(`${mailpitBaseUrl}/api/v1/search?query=${query}&limit=1`);
+    const response = await fetch(`${mailpitBaseUrl}/api/v1/search?query=${query}&limit=10`);
 
     if (response.ok) {
       const payload = (await response.json()) as MailpitSearchResponse;
-      const latestId = payload.messages[0]?.ID;
+      for (const candidate of payload.messages) {
+        const message = await getMailpitMessageById(candidate.ID);
 
-      if (latestId) {
-        return getMailpitMessageById(latestId);
+        if (predicate(message)) {
+          return message;
+        }
       }
     }
 
     await sleep(250);
   }
 
-  throw new Error(`Timed out waiting for a Mailpit message for ${recipient}.`);
+  throw new Error(`Timed out waiting for a matching Mailpit message for ${recipient}.`);
 }
 
 function extractResetLink(messageText: string) {
@@ -236,7 +242,7 @@ test.describe("movie app smoke suite", () => {
     await page.getByRole("button", { name: "Send reset link" }).click();
     await expect(page.getByText("If that account exists, we recorded the reset request.")).toBeVisible();
 
-    const resetMessage = await waitForLatestMailpitMessage(email);
+    const resetMessage = await waitForMailpitMessage(email);
     expect(resetMessage.Text).toContain("This reset link expires in 30 minutes.");
 
     const resetLink = extractResetLink(resetMessage.Text);
@@ -392,10 +398,14 @@ test.describe("movie app smoke suite", () => {
 
     await expect(page.getByText("We received your movie request and sent a confirmation email.")).toBeVisible();
 
-    const submitterMessage = await waitForLatestMailpitMessage(submitterEmail);
+    const submitterMessage = await waitForMailpitMessage(submitterEmail, (message) =>
+      message.Text.includes(`We received your movie request for "${requestTitle}".`),
+    );
     expect(submitterMessage.Text).toContain(`We received your movie request for "${requestTitle}".`);
 
-    const adminMessage = await waitForLatestMailpitMessage(adminEmail);
+    const adminMessage = await waitForMailpitMessage(adminEmail, (message) =>
+      message.Text.includes(`Title: ${requestTitle}`),
+    );
     expect(adminMessage.Text).toContain(`Title: ${requestTitle}`);
     expect(adminMessage.Text).toContain("Festival representative");
 
