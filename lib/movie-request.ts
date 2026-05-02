@@ -3,14 +3,14 @@ export const movieRequestRoleOptions = ["Director", "Producer", "Owner / Rights 
 export type MovieRequestRoleOption = (typeof movieRequestRoleOptions)[number];
 
 export type MovieRequestInput = {
-  title?: string;
-  language?: string;
-  producer?: string;
-  year?: string;
-  contactPhone?: string;
-  contactEmail?: string;
-  role?: string;
-  otherRole?: string;
+  title?: unknown;
+  language?: unknown;
+  producer?: unknown;
+  year?: unknown;
+  contactPhone?: unknown;
+  contactEmail?: unknown;
+  role?: unknown;
+  otherRole?: unknown;
 };
 
 export type MovieRequestPayload = {
@@ -26,12 +26,12 @@ export type MovieRequestPayload = {
 
 const minYear = 1880;
 
-function normalizeSingleLineText(value: string) {
-  return value.trim().replace(/\s+/g, " ");
+function normalizeSingleLineText(value: unknown) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 }
 
-export function normalizeMovieRequestEmail(value: string) {
-  return value.trim().toLowerCase();
+export function normalizeMovieRequestEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 export function isValidMovieRequestEmail(value: string) {
@@ -43,14 +43,14 @@ export function getMovieRequestMaxYear() {
 }
 
 export function validateMovieRequestInput(input: MovieRequestInput) {
-  const title = normalizeSingleLineText(input.title ?? "");
-  const language = normalizeSingleLineText(input.language ?? "");
-  const producer = normalizeSingleLineText(input.producer ?? "");
-  const yearValue = normalizeSingleLineText(input.year ?? "");
-  const contactPhone = normalizeSingleLineText(input.contactPhone ?? "");
-  const contactEmail = normalizeMovieRequestEmail(input.contactEmail ?? "");
-  const selectedRole = normalizeSingleLineText(input.role ?? "") as MovieRequestRoleOption | "";
-  const otherRole = normalizeSingleLineText(input.otherRole ?? "");
+  const title = normalizeSingleLineText(input.title);
+  const language = normalizeSingleLineText(input.language);
+  const producer = normalizeSingleLineText(input.producer);
+  const yearValue = normalizeSingleLineText(input.year);
+  const contactPhone = normalizeSingleLineText(input.contactPhone);
+  const contactEmail = normalizeMovieRequestEmail(input.contactEmail);
+  const selectedRole = normalizeSingleLineText(input.role) as MovieRequestRoleOption | "";
+  const otherRole = normalizeSingleLineText(input.otherRole);
 
   if (!title || !language || !producer || !yearValue || !contactPhone || !contactEmail || !selectedRole) {
     return { ok: false as const, message: "Complete every required field before sending your request." };

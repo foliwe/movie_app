@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
 
     const submittedAt = new Date();
 
-    await sendMovieRequestAdminNotificationEmail({
-      to: adminEmail,
+    await sendMovieRequestAcknowledgementEmail({
+      to: validation.data.contactEmail,
       request: validation.data,
       submittedAt,
     });
 
-    await sendMovieRequestAcknowledgementEmail({
-      to: validation.data.contactEmail,
+    await sendMovieRequestAdminNotificationEmail({
+      to: adminEmail,
       request: validation.data,
       submittedAt,
     });
