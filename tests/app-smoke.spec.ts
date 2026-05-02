@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { NextRequest } from "next/server";
 import { Client } from "pg";
+import { POST as submitMovieRequest } from "@/app/api/contact/movie-request/route";
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgresql://movieapp:movieapp@localhost:5432/movieapp";
 const mailpitBaseUrl = process.env.MAILPIT_BASE_URL ?? "http://127.0.0.1:8025";
@@ -99,6 +101,21 @@ async function createPasswordResetTokenForTest(
   }
 }
 
+async function countMoviesByTitle(title: string) {
+  const client = new Client({
+    connectionString: databaseUrl,
+  });
+
+  await client.connect();
+
+  try {
+    const result = await client.query<{ count: string }>('select count(*) from "Movie" where title = $1', [title]);
+    return Number(result.rows[0]?.count ?? "0");
+  } finally {
+    await client.end();
+  }
+}
+
 async function signInAdmin(page: Page) {
   await page.goto("/login?next=/admin/movies");
   await page.getByPlaceholder("you@example.com").fill("admin@example.com");
@@ -114,6 +131,8 @@ test.describe("movie app smoke suite", () => {
   test("core routes render a main heading", async ({ page }) => {
     const routes = [
       "/",
+      "/contact",
+      "/contact/movie-request",
       "/movies",
       "/movies/the-fishermans-diary",
       "/reviews",
@@ -236,6 +255,151 @@ test.describe("movie app smoke suite", () => {
     await page.getByPlaceholder("At least 8 characters").fill(newPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Account session is active.")).toBeVisible();
+  });
+
+  test("movie request route validates payload and requires admin email config", async () => {
+    const originalAdminEmail = process.env.MOVIE_REQUEST_ADMIN_EMAIL;
+
+    try {
+      const invalidEmailResponse = await submitMovieRequest(
+        new NextRequest("http://127.0.0.1:3000/api/contact/movie-request", {
+          method: "POST",
+          body: JSON.stringify({
+            title: "Validation Smoke Title",
+            language: "English",
+            producer: "Validation Producer",
+            year: "2024",
+            contactPhone: "+237699000000",
+            contactEmail: "not-an-email",
+            role: "Director",
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      );
+
+      expect(invalidEmailResponse.status).toBe(400);
+      expect(await invalidEmailResponse.json()).toEqual({
+        message: "Use a valid email address to continue.",
+      });
+
+      const missingOtherRoleResponse = await submitMovieRequest(
+        new NextRequest("http://127.0.0.1:3000/api/contact/movie-request", {
+          method: "POST",
+          body: JSON.stringify({
+            title: "Validation Smoke Title",
+            language: "English",
+            producer: "Validation Producer",
+            year: "2024",
+            contactPhone: "+237699000000",
+            contactEmail: "director@example.com",
+            role: "Other",
+            otherRole: "",
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      );
+
+      expect(missingOtherRoleResponse.status).toBe(400);
+      expect(await missingOtherRoleResponse.json()).toEqual({
+        message: "Describe your role in the movie.",
+      });
+
+      const invalidYearResponse = await submitMovieRequest(
+        new NextRequest("http://127.0.0.1:3000/api/contact/movie-request", {
+          method: "POST",
+          body: JSON.stringify({
+            title: "Validation Smoke Title",
+            language: "English",
+            producer: "Validation Producer",
+            year: "20A4",
+            contactPhone: "+237699000000",
+            contactEmail: "director@example.com",
+            role: "Director",
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      );
+
+      expect(invalidYearResponse.status).toBe(400);
+      expect(await invalidYearResponse.json()).toEqual({
+        message: "Use a valid 4-digit release year.",
+      });
+
+      delete process.env.MOVIE_REQUEST_ADMIN_EMAIL;
+
+      const missingEnvResponse = await submitMovieRequest(
+        new NextRequest("http://127.0.0.1:3000/api/contact/movie-request", {
+          method: "POST",
+          body: JSON.stringify({
+            title: "Validation Smoke Title",
+            language: "English",
+            producer: "Validation Producer",
+            year: "2024",
+            contactPhone: "+237699000000",
+            contactEmail: "director@example.com",
+            role: "Director",
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      );
+
+      expect(missingEnvResponse.status).toBe(500);
+      expect(await missingEnvResponse.json()).toEqual({
+        message: "We couldn't send your request right now. Please try again later.",
+      });
+    } finally {
+      if (originalAdminEmail === undefined) {
+        delete process.env.MOVIE_REQUEST_ADMIN_EMAIL;
+      } else {
+        process.env.MOVIE_REQUEST_ADMIN_EMAIL = originalAdminEmail;
+      }
+    }
+  });
+
+  test("contact movie request form sends acknowledgement and admin emails without creating a movie", async ({ page }) => {
+    test.skip(!process.env.MOVIE_REQUEST_ADMIN_EMAIL, "MOVIE_REQUEST_ADMIN_EMAIL is required for the email happy path.");
+
+    const requestTitle = `Smoke Request ${Date.now()}`;
+    const submitterEmail = `movie-request-${Date.now()}@example.com`;
+    const adminEmail = process.env.MOVIE_REQUEST_ADMIN_EMAIL as string;
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Contact" }).click();
+    await expect(page).toHaveURL(/\/contact$/);
+
+    await page.getByRole("link", { name: "Open movie request" }).click();
+    await expect(page).toHaveURL(/\/contact\/movie-request$/);
+
+    const form = page.locator(".movie-request-form");
+
+    await form.getByPlaceholder("The Fisherman's Diary").fill(requestTitle);
+    await form.getByPlaceholder("English").fill("English");
+    await form.getByPlaceholder("Asaba Films").fill("Smoke Producer");
+    await form.getByPlaceholder("2024").fill("2024");
+    await form.getByPlaceholder("+237 6 99 00 00 00").fill("+237 6 99 00 00 00");
+    await form.getByPlaceholder("producer@example.com").fill(submitterEmail);
+    await form.getByTestId("movie-request-role").selectOption("Other");
+    await form.getByTestId("movie-request-other-role").fill("Festival representative");
+    await form.getByRole("button", { name: "Send request" }).click();
+
+    await expect(page.getByText("We received your movie request and sent a confirmation email.")).toBeVisible();
+
+    const submitterMessage = await waitForLatestMailpitMessage(submitterEmail);
+    expect(submitterMessage.Text).toContain(`We received your movie request for "${requestTitle}".`);
+
+    const adminMessage = await waitForLatestMailpitMessage(adminEmail);
+    expect(adminMessage.Text).toContain(`Title: ${requestTitle}`);
+    expect(adminMessage.Text).toContain("Festival representative");
+
+    await expect.poll(async () => countMoviesByTitle(requestTitle)).toBe(0);
   });
 
   test("password reset handles invalid, expired, reused tokens and invalidates prior sessions", async ({ page }) => {

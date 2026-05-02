@@ -8,6 +8,7 @@ import type { AccountProfile, Movie, Review } from "@/lib/movies";
 import { LanguageBadges, RatingPill } from "@/components/site";
 import { getLanguageLabel, type Locale } from "@/lib/i18n";
 import { useLocale } from "@/components/locale-provider";
+import { getMovieRequestMaxYear, movieRequestRoleOptions, type MovieRequestRoleOption } from "@/lib/movie-request";
 
 type FormState = "idle" | "loading" | "error" | "success";
 type DraftStatus = "idle" | "dirty" | "saving" | "saved";
@@ -233,6 +234,69 @@ const ownerReviewCopy = {
   },
 } satisfies Record<Locale, Record<string, string>>;
 
+const movieRequestCopy = {
+  en: {
+    title: "Movie request",
+    intro: "Share the title details below. We will email you to confirm the request and notify the admin team right away.",
+    movieTitle: "Movie title",
+    movieTitlePlaceholder: "The Fisherman's Diary",
+    language: "Language",
+    languagePlaceholder: "English",
+    producer: "Producer",
+    producerPlaceholder: "Asaba Films",
+    year: "Release year",
+    yearPlaceholder: "2024",
+    phone: "Contact phone",
+    phonePlaceholder: "+237 6 99 00 00 00",
+    email: "Contact email",
+    emailPlaceholder: "producer@example.com",
+    role: "Role in the movie",
+    otherRole: "Describe your role",
+    otherRolePlaceholder: "Executive producer",
+    invalidRequired: "Complete every required field before sending your request.",
+    invalidEmail: "Use a valid email address to continue.",
+    invalidYear: "Use a valid 4-digit release year.",
+    invalidRole: "Describe your role in the movie.",
+    success: "We received your movie request and sent a confirmation email.",
+    error: "We couldn't send your request right now. Please try again later.",
+    submit: "Send request",
+    roleDirector: "Director",
+    roleProducer: "Producer",
+    roleOwner: "Owner / Rights holder",
+    roleOther: "Other",
+  },
+  fr: {
+    title: "Demande de film",
+    intro: "Partagez ci-dessous les details du titre. Nous vous enverrons un email de confirmation et informerons immediatement l'equipe admin.",
+    movieTitle: "Titre du film",
+    movieTitlePlaceholder: "The Fisherman's Diary",
+    language: "Langue",
+    languagePlaceholder: "Anglais",
+    producer: "Producteur",
+    producerPlaceholder: "Asaba Films",
+    year: "Annee de sortie",
+    yearPlaceholder: "2024",
+    phone: "Telephone de contact",
+    phonePlaceholder: "+237 6 99 00 00 00",
+    email: "Email de contact",
+    emailPlaceholder: "producteur@example.com",
+    role: "Role dans le film",
+    otherRole: "Precisez votre role",
+    otherRolePlaceholder: "Producteur executif",
+    invalidRequired: "Completez tous les champs requis avant d'envoyer votre demande.",
+    invalidEmail: "Utilisez une adresse email valide pour continuer.",
+    invalidYear: "Utilisez une annee de sortie valide sur 4 chiffres.",
+    invalidRole: "Precisez votre role dans le film.",
+    success: "Nous avons recu votre demande de film et envoye un email de confirmation.",
+    error: "Impossible d'envoyer votre demande pour le moment. Veuillez reessayer plus tard.",
+    submit: "Envoyer la demande",
+    roleDirector: "Realisateur",
+    roleProducer: "Producteur",
+    roleOwner: "Detenteur des droits",
+    roleOther: "Autre",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
 export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -394,6 +458,173 @@ export function AuthForm({ mode, token }: { mode: AuthMode; token?: string }) {
         {mode === "login" ? <Link href="/forgot-password">{t.forgotPassword}</Link> : null}
         {mode !== "register" && mode !== "reset" ? <Link href={registerHref}>{t.createAccount}</Link> : null}
       </div>
+    </form>
+  );
+}
+
+export function MovieRequestForm() {
+  const { locale } = useLocale();
+  const t = movieRequestCopy[locale];
+  const [state, setState] = useState<FormState>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [language, setLanguage] = useState("");
+  const [producer, setProducer] = useState("");
+  const [year, setYear] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [role, setRole] = useState<MovieRequestRoleOption>("Director");
+  const [otherRole, setOtherRole] = useState("");
+  const maxYear = getMovieRequestMaxYear();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setState("loading");
+    setMessage(null);
+
+    if (!title.trim() || !language.trim() || !producer.trim() || !year.trim() || !contactPhone.trim() || !contactEmail.trim()) {
+      setState("error");
+      setMessage(t.invalidRequired);
+      return;
+    }
+
+    if (!contactEmail.includes("@")) {
+      setState("error");
+      setMessage(t.invalidEmail);
+      return;
+    }
+
+    if (!/^\d{4}$/.test(year.trim())) {
+      setState("error");
+      setMessage(t.invalidYear);
+      return;
+    }
+
+    const parsedYear = Number(year.trim());
+    if (!Number.isInteger(parsedYear) || parsedYear < 1880 || parsedYear > maxYear) {
+      setState("error");
+      setMessage(t.invalidYear);
+      return;
+    }
+
+    if (role === "Other" && !otherRole.trim()) {
+      setState("error");
+      setMessage(t.invalidRole);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/contact/movie-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          language,
+          producer,
+          year,
+          contactPhone,
+          contactEmail,
+          role,
+          otherRole,
+        }),
+      });
+      const payload = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setState("error");
+        setMessage(payload.message ?? t.error);
+        return;
+      }
+
+      setState("success");
+      setMessage(payload.message ?? t.success);
+    } catch {
+      setState("error");
+      setMessage(t.error);
+    }
+  }
+
+  return (
+    <form className="auth-form movie-request-form" onSubmit={handleSubmit}>
+      <h2>{t.title}</h2>
+      <p className="form-helper">{t.intro}</p>
+      <div className="request-form-grid">
+        <label className="form-span-full">
+          {t.movieTitle}
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.movieTitlePlaceholder} />
+        </label>
+        <label>
+          {t.language}
+          <input value={language} onChange={(event) => setLanguage(event.target.value)} placeholder={t.languagePlaceholder} />
+        </label>
+        <label>
+          {t.producer}
+          <input value={producer} onChange={(event) => setProducer(event.target.value)} placeholder={t.producerPlaceholder} />
+        </label>
+        <label>
+          {t.year}
+          <input
+            value={year}
+            onChange={(event) => setYear(event.target.value)}
+            placeholder={t.yearPlaceholder}
+            inputMode="numeric"
+            maxLength={4}
+          />
+        </label>
+        <label>
+          {t.phone}
+          <input value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder={t.phonePlaceholder} />
+        </label>
+        <label>
+          {t.email}
+          <input
+            type="email"
+            value={contactEmail}
+            onChange={(event) => setContactEmail(event.target.value)}
+            placeholder={t.emailPlaceholder}
+          />
+        </label>
+        <label>
+          {t.role}
+          <select value={role} onChange={(event) => setRole(event.target.value as MovieRequestRoleOption)} data-testid="movie-request-role">
+            {movieRequestRoleOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === "Director"
+                  ? t.roleDirector
+                  : option === "Producer"
+                    ? t.roleProducer
+                    : option === "Owner / Rights holder"
+                      ? t.roleOwner
+                      : t.roleOther}
+              </option>
+            ))}
+          </select>
+        </label>
+        {role === "Other" ? (
+          <label>
+            {t.otherRole}
+            <input
+              value={otherRole}
+              onChange={(event) => setOtherRole(event.target.value)}
+              placeholder={t.otherRolePlaceholder}
+              data-testid="movie-request-other-role"
+            />
+          </label>
+        ) : null}
+      </div>
+      {state === "error" && message ? <p className="form-message error">{message}</p> : null}
+      {state === "success" && message ? (
+        <p className="form-message success">
+          <CheckCircle2 size={18} />
+          {message}
+        </p>
+      ) : null}
+      <button className="primary-action" type="submit" disabled={state === "loading"}>
+        {state === "loading" ? <Loader2 className="spin" size={18} /> : null}
+        {t.submit}
+      </button>
     </form>
   );
 }
