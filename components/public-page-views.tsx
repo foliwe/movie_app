@@ -33,6 +33,9 @@ const homeCopy = {
     selected: "Selected film",
     filters: "Filters",
     filmCount: "films",
+    previous: "Previous",
+    next: "Next",
+    page: "Page",
     allGenres: "All genres",
     allLanguages: "All languages",
   },
@@ -56,6 +59,9 @@ const homeCopy = {
     selected: "Film selectionne",
     filters: "Filtres",
     filmCount: "films",
+    previous: "Precedent",
+    next: "Suivant",
+    page: "Page",
     allGenres: "Tous genres",
     allLanguages: "Toutes langues",
   },
@@ -185,7 +191,9 @@ export function HomePageView({
   const [selectedMovieId, setSelectedMovieId] = useState(movies[1]?.id ?? movies[0]?.id ?? "");
   const [activeGenre, setActiveGenre] = useState("All");
   const [activeLanguage, setActiveLanguage] = useState("All");
+  const [page, setPage] = useState(1);
   const t = homeCopy[locale];
+  const moviesPerPage = 7;
   const heroMovie = movies.find((movie) => movie.id === selectedMovieId) ?? movies[1] ?? movies[0];
   const reviewMovieLookup = useMemo(() => new Map(movies.map((movie) => [movie.slug, movie])), [movies]);
   const editorPickMovies = useMemo(() => movies.filter((movie) => movie.editorPick).slice(0, 3), [movies]);
@@ -202,6 +210,19 @@ export function HomePageView({
       }),
     [activeGenre, activeLanguage, movies],
   );
+  const totalPages = Math.max(1, Math.ceil(filteredMovies.length / moviesPerPage));
+  const paginatedMovies = useMemo(
+    () => filteredMovies.slice((page - 1) * moviesPerPage, page * moviesPerPage),
+    [filteredMovies, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeGenre, activeLanguage]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   if (!heroMovie) {
     return (
@@ -377,10 +398,33 @@ export function HomePageView({
         </div>
 
         <div className="catalogue-list">
-          {filteredMovies.map((movie) => (
+          {paginatedMovies.map((movie) => (
             <MovieRow key={movie.id} movie={movie} href={`/movies/${movie.slug}`} variant="meta" />
           ))}
         </div>
+        {filteredMovies.length > moviesPerPage ? (
+          <div className="pagination-bar" aria-label={`${t.page} navigation`}>
+            <button
+              className="secondary-action pagination-button"
+              type="button"
+              onClick={() => setPage((current) => current - 1)}
+              disabled={page === 1}
+            >
+              {t.previous}
+            </button>
+            <strong>
+              {t.page} {page} / {totalPages}
+            </strong>
+            <button
+              className="secondary-action pagination-button"
+              type="button"
+              onClick={() => setPage((current) => current + 1)}
+              disabled={page === totalPages}
+            >
+              {t.next}
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   );
