@@ -1,10 +1,32 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://movieapp:movieapp@postgres:5432/movieapp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["npx", "prisma", "migrate", "deploy"]
+    restart: "no"
+
   web:
     ports: !reset []
     environment:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://movieapp:movieapp@postgres:5432/movieapp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     expose:
       - "3000"
 
@@ -15,7 +37,7 @@ services:
     image: nginx:1.27-alpine
     depends_on:
       web:
-        condition: service_started
+        condition: service_healthy
     environment:
       DOMAIN: ${DOMAIN:-example.com}
     ports:

@@ -7,6 +7,7 @@ RUN apk add --no-cache libc6-compat
 
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY lib ./lib
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 RUN npm ci
@@ -14,8 +15,20 @@ RUN npm ci
 FROM base AS builder
 ARG NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 ARG NEXT_PUBLIC_CLOUDINARY_API_KEY
+ARG DATABASE_URL=postgresql://movieapp:movieapp@localhost:5432/movieapp
+ARG APP_URL=https://example.invalid
+ARG SMTP_HOST=127.0.0.1
+ARG SMTP_PORT=1025
+ARG SMTP_FROM=Mboko Reels <noreply@example.invalid>
+ARG MOVIE_REQUEST_ADMIN_EMAIL=admin@example.invalid
 ENV NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}
 ENV NEXT_PUBLIC_CLOUDINARY_API_KEY=${NEXT_PUBLIC_CLOUDINARY_API_KEY}
+ENV DATABASE_URL=${DATABASE_URL}
+ENV APP_URL=${APP_URL}
+ENV SMTP_HOST=${SMTP_HOST}
+ENV SMTP_PORT=${SMTP_PORT}
+ENV SMTP_FROM=${SMTP_FROM}
+ENV MOVIE_REQUEST_ADMIN_EMAIL=${MOVIE_REQUEST_ADMIN_EMAIL}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run db:generate

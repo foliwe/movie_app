@@ -1,7 +1,8 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { getDatabaseUrl } from "@/lib/env";
 
-const datasourceUrl = process.env.DATABASE_URL ?? "postgresql://movieapp:movieapp@localhost:5432/movieapp";
+const datasourceUrl = getDatabaseUrl();
 const adapter = new PrismaPg({ connectionString: datasourceUrl });
 
 declare global {

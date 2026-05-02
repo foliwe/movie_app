@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { getDatabaseUrl } from "./lib/env";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -8,6 +9,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? "postgresql://movieapp:movieapp@localhost:5432/movieapp",
+    url: getDatabaseUrl(),
   },
 });

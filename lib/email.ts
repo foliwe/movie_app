@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getAppUrl as getBaseAppUrl, getSmtpConfig } from "@/lib/env";
 import type { MovieRequestPayload } from "@/lib/movie-request";
 
 type SendEmailInput = {
@@ -20,18 +21,13 @@ type MovieRequestEmailInput = {
   submittedAt: Date;
 };
 
-const defaultAppUrl = "http://127.0.0.1:3000";
-const defaultSmtpHost = "127.0.0.1";
-const defaultSmtpPort = 1025;
-const defaultFrom = "Mboko Reels <noreply@mbokoreels.local>";
-
 declare global {
   // eslint-disable-next-line no-var
   var __mailTransport__: nodemailer.Transporter | undefined;
 }
 
 function getAppUrl() {
-  return (process.env.APP_URL ?? defaultAppUrl).replace(/\/+$/, "");
+  return getBaseAppUrl();
 }
 
 function escapeHtml(value: string) {
@@ -55,10 +51,10 @@ function getTransport() {
     return global.__mailTransport__;
   }
 
-  const port = Number(process.env.SMTP_PORT ?? defaultSmtpPort);
+  const smtp = getSmtpConfig();
   const transport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST ?? defaultSmtpHost,
-    port: Number.isFinite(port) ? port : defaultSmtpPort,
+    host: smtp.host,
+    port: smtp.port,
     secure: false,
   });
 
@@ -70,8 +66,10 @@ function getTransport() {
 }
 
 export async function sendEmail({ to, subject, text, html }: SendEmailInput) {
+  const smtp = getSmtpConfig();
+
   await getTransport().sendMail({
-    from: process.env.SMTP_FROM ?? defaultFrom,
+    from: smtp.from,
     to,
     subject,
     text,

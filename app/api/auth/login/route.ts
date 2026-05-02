@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSession, isValidEmail, normalizeEmail, setSessionCookie, verifyPassword } from "@/lib/auth";
+import { logWarn } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import {
+  consumeRateLimit,
+  createRateLimitResponse,
+  getClientIp,
+  jsonWithRateLimit,
+} from "@/lib/rate-limit";
+
+const loginRateLimit = {
+  key: "auth-login",
+  limit: 10,
+  windowMs: 10 * 60 * 1000,
+  blockDurationMs: 15 * 60 * 1000,
+};
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
@@ -9,9 +23,21 @@ export async function POST(request: NextRequest) {
   };
   const email = normalizeEmail(body.email ?? "");
   const password = body.password ?? "";
+  const rateLimit = consumeRateLimit(request, loginRateLimit, email);
+
+  if (!rateLimit.ok) {
+    logWarn("auth.login.rate_limited", {
+      ip: getClientIp(request),
+    });
+    return createRateLimitResponse("Too many sign-in attempts. Please wait a few minutes and try again.", rateLimit);
+  }
 
   if (!isValidEmail(email) || password.length === 0) {
-    return NextResponse.json({ message: "Use a valid email and password to continue." }, { status: 400 });
+    return jsonWithRateLimit(
+      { message: "Use a valid email and password to continue." },
+      { status: 400 },
+      rateLimit,
+    );
   }
 
   const user = await prisma.user.findUnique({
@@ -27,7 +53,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user || !verifyPassword(password, user.passwordHash)) {
-    return NextResponse.json({ message: "Email or password is incorrect." }, { status: 401 });
+    return jsonWithRateLimit({ message: "Email or password is incorrect." }, { status: 401 }, rateLimit);
   }
 
   const session = await createSession(user.id, request.headers.get("user-agent"));
@@ -40,6 +66,9 @@ export async function POST(request: NextRequest) {
     },
   });
   setSessionCookie(response, request, session.token, session.expiresAt);
+  response.headers.set("X-RateLimit-Limit", String(rateLimit.limit));
+  response.headers.set("X-RateLimit-Remaining", String(rateLimit.remaining));
+  response.headers.set("X-RateLimit-Reset", new Date(rateLimit.resetAt).toISOString());
 
   return response;
 }

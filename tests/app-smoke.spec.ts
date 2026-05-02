@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { NextRequest } from "next/server";
 import { Client } from "pg";
 import { POST as submitMovieRequest } from "@/app/api/contact/movie-request/route";
+import { validateRuntimeEnv } from "@/lib/env";
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgresql://movieapp:movieapp@localhost:5432/movieapp";
 const mailpitBaseUrl = process.env.MAILPIT_BASE_URL ?? "http://127.0.0.1:8025";
@@ -153,6 +154,227 @@ test.describe("movie app smoke suite", () => {
       await expect(page.locator("main")).toBeVisible();
       await expect(page.locator("h1")).toBeVisible();
     }
+  });
+
+  test("startup validation fails fast for missing production config", async () => {
+    const env = process.env as Record<string, string | undefined>;
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    const originalAppUrl = process.env.APP_URL;
+    const originalSmtpHost = process.env.SMTP_HOST;
+    const originalSmtpPort = process.env.SMTP_PORT;
+    const originalSmtpFrom = process.env.SMTP_FROM;
+    const originalMovieRequestAdminEmail = process.env.MOVIE_REQUEST_ADMIN_EMAIL;
+
+    try {
+      env.NODE_ENV = "production";
+      delete env.DATABASE_URL;
+      env.APP_URL = "https://mbokoreels.example";
+      env.SMTP_HOST = "smtp.example.com";
+      env.SMTP_PORT = "2525";
+      env.SMTP_FROM = "Mboko Reels <noreply@example.com>";
+      env.MOVIE_REQUEST_ADMIN_EMAIL = "ops@example.com";
+
+      expect(() => validateRuntimeEnv()).toThrow("Missing required environment variable DATABASE_URL.");
+    } finally {
+      env.NODE_ENV = originalNodeEnv;
+
+      if (originalDatabaseUrl === undefined) {
+        delete env.DATABASE_URL;
+      } else {
+        env.DATABASE_URL = originalDatabaseUrl;
+      }
+
+      if (originalAppUrl === undefined) {
+        delete env.APP_URL;
+      } else {
+        env.APP_URL = originalAppUrl;
+      }
+
+      if (originalSmtpHost === undefined) {
+        delete env.SMTP_HOST;
+      } else {
+        env.SMTP_HOST = originalSmtpHost;
+      }
+
+      if (originalSmtpPort === undefined) {
+        delete env.SMTP_PORT;
+      } else {
+        env.SMTP_PORT = originalSmtpPort;
+      }
+
+      if (originalSmtpFrom === undefined) {
+        delete env.SMTP_FROM;
+      } else {
+        env.SMTP_FROM = originalSmtpFrom;
+      }
+
+      if (originalMovieRequestAdminEmail === undefined) {
+        delete env.MOVIE_REQUEST_ADMIN_EMAIL;
+      } else {
+        env.MOVIE_REQUEST_ADMIN_EMAIL = originalMovieRequestAdminEmail;
+      }
+    }
+  });
+
+  test("health endpoint reports app and database readiness", async ({ page }) => {
+    const response = await page.request.get("/api/health");
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    expect(await response.json()).toMatchObject({
+      status: "ok",
+      database: "ok",
+    });
+  });
+
+  test("public write routes enforce rate limits", async ({ page }) => {
+    const testRunId = Date.now().toString();
+    const loginRequestOptions = {
+      failOnStatusCode: false,
+      headers: {
+        "x-forwarded-for": `rate-limit-login-${testRunId}`,
+      },
+    };
+    const registerRequestOptions = {
+      failOnStatusCode: false,
+      headers: {
+        "x-forwarded-for": `rate-limit-register-${testRunId}`,
+      },
+    };
+    const forgotPasswordRequestOptions = {
+      failOnStatusCode: false,
+      headers: {
+        "x-forwarded-for": `rate-limit-forgot-${testRunId}`,
+      },
+    };
+    const resetPasswordRequestOptions = {
+      failOnStatusCode: false,
+      headers: {
+        "x-forwarded-for": `rate-limit-reset-${testRunId}`,
+      },
+    };
+    const movieRequestOptions = {
+      failOnStatusCode: false,
+      headers: {
+        "x-forwarded-for": `rate-limit-movie-request-${testRunId}`,
+      },
+    };
+
+    for (let index = 0; index < 10; index += 1) {
+      const response = await page.request.post("/api/auth/login", {
+        data: {
+          email: "throttle-login@example.com",
+          password: "wrong-password",
+        },
+        ...loginRequestOptions,
+      });
+
+      expect(response.status()).toBe(401);
+    }
+
+    const throttledLogin = await page.request.post("/api/auth/login", {
+      data: {
+        email: "throttle-login@example.com",
+        password: "wrong-password",
+      },
+      ...loginRequestOptions,
+    });
+    expect(throttledLogin.status()).toBe(429);
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await page.request.post("/api/auth/register", {
+        data: {
+          displayName: "A",
+          email: "throttle-register@example.com",
+          password: "password123",
+        },
+        ...registerRequestOptions,
+      });
+
+      expect(response.status()).toBe(400);
+    }
+
+    const throttledRegister = await page.request.post("/api/auth/register", {
+      data: {
+        displayName: "A",
+        email: "throttle-register@example.com",
+        password: "password123",
+      },
+      ...registerRequestOptions,
+    });
+    expect(throttledRegister.status()).toBe(429);
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await page.request.post("/api/auth/forgot-password", {
+        data: {
+          email: "throttle-forgot@example.com",
+        },
+        ...forgotPasswordRequestOptions,
+      });
+
+      expect(response.status()).toBe(200);
+    }
+
+    const throttledForgotPassword = await page.request.post("/api/auth/forgot-password", {
+      data: {
+        email: "throttle-forgot@example.com",
+      },
+      ...forgotPasswordRequestOptions,
+    });
+    expect(throttledForgotPassword.status()).toBe(429);
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await page.request.post("/api/auth/reset-password", {
+        data: {
+          token: "",
+          password: "password123",
+        },
+        ...resetPasswordRequestOptions,
+      });
+
+      expect(response.status()).toBe(400);
+    }
+
+    const throttledResetPassword = await page.request.post("/api/auth/reset-password", {
+      data: {
+        token: "",
+        password: "password123",
+      },
+      ...resetPasswordRequestOptions,
+    });
+    expect(throttledResetPassword.status()).toBe(429);
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await page.request.post("/api/contact/movie-request", {
+        data: {
+          title: "Throttle Movie Request",
+          language: "English",
+          producer: "Throttle Producer",
+          year: "20A4",
+          contactPhone: "+237699000000",
+          contactEmail: "director@example.com",
+          role: "Director",
+        },
+        ...movieRequestOptions,
+      });
+
+      expect(response.status()).toBe(400);
+    }
+
+    const throttledMovieRequest = await page.request.post("/api/contact/movie-request", {
+      data: {
+        title: "Throttle Movie Request",
+        language: "English",
+        producer: "Throttle Producer",
+        year: "20A4",
+        contactPhone: "+237699000000",
+        contactEmail: "director@example.com",
+        role: "Director",
+      },
+      ...movieRequestOptions,
+    });
+    expect(throttledMovieRequest.status()).toBe(429);
   });
 
   test("search supports locale switching and filters", async ({ page }) => {
