@@ -25,6 +25,7 @@ export const uiCopy = {
     reviews: "Reviews",
     people: "People",
     search: "Search",
+    contact: "Contact",
     profiles: "Profiles",
     account: "Account",
     signIn: "Sign in",
@@ -39,6 +40,7 @@ export const uiCopy = {
     reviews: "Critiques",
     people: "Artistes",
     search: "Recherche",
+    contact: "Contact",
     profiles: "Profils",
     account: "Compte",
     signIn: "Connexion",
@@ -60,6 +62,7 @@ export function SiteHeader() {
     { label: t.reviews, href: "/reviews" },
     { label: t.search, href: "/search" },
     { label: t.people, href: "/people/rosine-mbakam" },
+    { label: t.contact, href: "/contact" },
     ...(authUser ? [{ label: t.account, href: "/account/profile" }] : []),
     ...(authUser?.role === "Admin" ? [{ label: t.admin, href: "/admin/movies" }] : []),
   ];

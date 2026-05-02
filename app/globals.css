@@ -1314,6 +1314,14 @@ body {
   .cineverse-unsaved-bar {
     grid-template-columns: 1fr;
   }
+
+  .request-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-span-full {
+    grid-column: auto;
+  }
 }
 
 a {
@@ -2333,6 +2341,68 @@ blockquote cite {
   font-size: 0.92rem;
 }
 
+.contact-band {
+  padding-top: 12px;
+}
+
+.contact-copy {
+  display: grid;
+  gap: 18px;
+  color: rgba(243, 236, 220, 0.82);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.contact-copy p,
+.contact-bullet-list {
+  margin: 0;
+}
+
+.contact-bullet-list {
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+  color: rgba(243, 236, 220, 0.78);
+}
+
+.contact-request-panel {
+  gap: 16px;
+}
+
+.contact-request-list {
+  display: grid;
+  gap: 12px;
+}
+
+.contact-request-list div {
+  min-height: 54px;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: rgba(243, 236, 220, 0.035);
+}
+
+.contact-request-list strong,
+.contact-request-list span {
+  display: block;
+}
+
+.contact-request-list strong {
+  grid-column: 1 / -1;
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.contact-request-list svg {
+  color: var(--teal);
+}
+
 .detail-action {
   justify-content: space-between;
   min-height: 46px;
@@ -2836,6 +2906,13 @@ blockquote cite {
   text-transform: uppercase;
 }
 
+.form-helper {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 .auth-form label {
   display: grid;
   gap: 8px;
@@ -2879,6 +2956,20 @@ blockquote cite {
 .auth-form .primary-action:disabled {
   cursor: wait;
   opacity: 0.78;
+}
+
+.movie-request-form {
+  width: min(100%, 720px);
+}
+
+.request-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form-span-full {
+  grid-column: 1 / -1;
 }
 
 .form-message {

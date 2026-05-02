@@ -5,6 +5,7 @@ services:
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-Mboko Reels <noreply@mbokoreels.local>}
       APP_URL: ${APP_URL:-http://127.0.0.1:3000}
+      MOVIE_REQUEST_ADMIN_EMAIL: ${MOVIE_REQUEST_ADMIN_EMAIL:-}
     depends_on:
       mailpit:
         condition: service_started
